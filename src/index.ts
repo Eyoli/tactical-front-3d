@@ -1,8 +1,71 @@
-import { MyLibrary } from './MyLibrary';
+import * as THREE from 'three';
+import {VoxelWorld} from './model/voxel-world'
+import {VoxelWorldManager} from "./voxel-world-manager";
+import {addInteractionListeners} from "./events";
 
-console.log('See this in your browser console: Typescript Webpack Starter Launched');
+function main() {
+    const canvas: HTMLCanvasElement = document.querySelector('#canvas');
+    const renderer = new THREE.WebGLRenderer({canvas});
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
-const myLibrary = new MyLibrary();
-const result = myLibrary.executeDependency();
+    const cellSize = 32
+    const tileSize = 16;
+    const tileTextureWidth = 256;
+    const tileTextureHeight = 64;
+    const loader = new THREE.TextureLoader();
+    const texture = loader.load('https://threejsfundamentals.org/threejs/resources/images/minecraft/flourish-cc-by-nc-sa.png', render);
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
 
-console.log(`A random number ${result}`);
+    const world = new VoxelWorld({
+        cellSize,
+        tileSize,
+        tileTextureWidth,
+        tileTextureHeight,
+    });
+
+    const material = new THREE.MeshLambertMaterial({
+        map: texture,
+        side: THREE.DoubleSide,
+        alphaTest: 0.1,
+        transparent: true,
+    });
+
+    const manager = new VoxelWorldManager(world, material, canvas, cellSize)
+    manager.addLight(-1, 2, 4);
+    manager.addLight(1, -1, -2);
+    manager.generateVoxels()
+
+    manager.updateVoxelGeometry(1, 1, 1);  // 0,0,0 will generate
+
+    let renderRequested = false;
+
+    function render() {
+        renderRequested = undefined;
+
+        if (manager.resizeRendererToDisplaySize(renderer)) {
+            const canvas = renderer.domElement;
+            manager.camera.aspect = canvas.clientWidth / canvas.clientHeight;
+            manager.camera.updateProjectionMatrix();
+        }
+
+        manager.controls.update();
+        renderer.render(manager.scene, manager.camera);
+    }
+
+    render();
+
+    function requestRenderIfNotRequested() {
+        if (!renderRequested) {
+            renderRequested = true;
+            requestAnimationFrame(render);
+        }
+    }
+
+    manager.controls.addEventListener('change', requestRenderIfNotRequested);
+    window.addEventListener('resize', requestRenderIfNotRequested);
+
+    addInteractionListeners(canvas, manager, requestRenderIfNotRequested)
+}
+
+main();

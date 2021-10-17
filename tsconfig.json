@@ -9,7 +9,11 @@
     "lib": ["es2017", "dom"],
     "noImplicitAny": true,
     "suppressImplicitAnyIndexErrors": true,
-    "removeComments": true
+    "removeComments": true,
+    "allowJs": true
   },
+  "include": [
+    "src"
+  ],
   "exclude": ["node_modules", "dist"]
 }
