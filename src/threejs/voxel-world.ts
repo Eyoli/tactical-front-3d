@@ -1,78 +1,136 @@
-import {euclideanModulo} from "three/src/math/MathUtils"
+import {
+    BoxGeometry,
+    BufferAttribute,
+    BufferGeometry,
+    Group,
+    Mesh,
+    MeshLambertMaterial,
+    MeshStandardMaterial
+} from "three"
+import {Position3D, World} from "../model/world"
 
-type Position3D = {
-    x: number
-    y: number
-    z: number
+class Cube {
+    readonly mesh: Mesh
+
+    constructor(mesh: Mesh) {
+        this.mesh = mesh
+    }
+
+    render = (time: number) => {
+        // this.mesh.position.y = Math.sin(time) * 20 + 5
+        this.mesh.rotation.x = time * 0.5
+        this.mesh.rotation.z = time * 0.51
+    }
+}
+
+const FACES = [
+    { // left
+        uvRow: 0,
+        dir: [-1, 0, 0],
+        corners: [
+            {pos: [0, 1, 0], uv: [0, 1]},
+            {pos: [0, 0, 0], uv: [0, 0]},
+            {pos: [0, 1, 1], uv: [1, 1]},
+            {pos: [0, 0, 1], uv: [1, 0]},
+        ],
+    },
+    { // right
+        uvRow: 0,
+        dir: [1, 0, 0],
+        corners: [
+            {pos: [1, 1, 1], uv: [0, 1]},
+            {pos: [1, 0, 1], uv: [0, 0]},
+            {pos: [1, 1, 0], uv: [1, 1]},
+            {pos: [1, 0, 0], uv: [1, 0]},
+        ],
+    },
+    { // bottom
+        uvRow: 1,
+        dir: [0, -1, 0],
+        corners: [
+            {pos: [1, 0, 1], uv: [1, 0]},
+            {pos: [0, 0, 1], uv: [0, 0]},
+            {pos: [1, 0, 0], uv: [1, 1]},
+            {pos: [0, 0, 0], uv: [0, 1]},
+        ],
+    },
+    { // top
+        uvRow: 2,
+        dir: [0, 1, 0],
+        corners: [
+            {pos: [0, 1, 1], uv: [1, 1]},
+            {pos: [1, 1, 1], uv: [0, 1]},
+            {pos: [0, 1, 0], uv: [1, 0]},
+            {pos: [1, 1, 0], uv: [0, 0]},
+        ],
+    },
+    { // back
+        uvRow: 0,
+        dir: [0, 0, -1],
+        corners: [
+            {pos: [1, 0, 0], uv: [0, 0]},
+            {pos: [0, 0, 0], uv: [1, 0]},
+            {pos: [1, 1, 0], uv: [0, 1]},
+            {pos: [0, 1, 0], uv: [1, 1]},
+        ],
+    },
+    { // front
+        uvRow: 0,
+        dir: [0, 0, 1],
+        corners: [
+            {pos: [0, 0, 1], uv: [0, 0]},
+            {pos: [1, 0, 1], uv: [1, 0]},
+            {pos: [0, 1, 1], uv: [0, 1]},
+            {pos: [1, 1, 1], uv: [1, 1]},
+        ],
+    },
+]
+
+export type TextureInfos = {
+    material: MeshLambertMaterial
+    tileSize: number
+    tileTextureHeight: number
+    tileTextureWidth: number
 }
 
 type VoxelWorldOptions = {
-    cellSize: number
+    world: World,
+    textureInfos: TextureInfos
 }
 
 export class VoxelWorld {
-    cellSize: number
-    cellSliceSize: number
-    cells: Uint8Array[]
+    private readonly world: World
+    private readonly textureInfos: TextureInfos
+    private readonly chunkIdToMesh = {}
+    private readonly cubes: Cube[] = []
+    readonly parent = new Group()
 
-    constructor({cellSize}: VoxelWorldOptions) {
-        this.cellSize = cellSize
-        this.cellSliceSize = cellSize * cellSize
-        this.cells = []
+    private readonly neighborOffsets = [
+        [0, 0, 0], // self
+        [-1, 0, 0], // left
+        [1, 0, 0], // right
+        [0, -1, 0], // down
+        [0, 1, 0], // up
+        [0, 0, -1], // back
+        [0, 0, 1], // front
+    ]
+
+    constructor({world, textureInfos}: VoxelWorldOptions) {
+        this.world = world
+        this.textureInfos = textureInfos
     }
 
-    computeVoxelOffset(x: number, y: number, z: number) {
-        const {cellSize, cellSliceSize} = this
-        const voxelX = euclideanModulo(x, cellSize) | 0
-        const voxelY = euclideanModulo(y, cellSize) | 0
-        const voxelZ = euclideanModulo(z, cellSize) | 0
-        return voxelY * cellSliceSize +
-            voxelZ * cellSize +
-            voxelX
+    getChunkMesh = (x: number, y: number, z: number): Mesh<BufferGeometry, MeshLambertMaterial> => {
+        const cellId = this.world.computeChunkId({x, y, z})
+        return this.chunkIdToMesh[cellId]
     }
 
-    computeCellId(x: number, y: number, z: number) {
-        const {cellSize} = this
-        const cellX = Math.floor(x / cellSize)
-        const cellY = Math.floor(y / cellSize)
-        const cellZ = Math.floor(z / cellSize)
-        return `${cellX},${cellY},${cellZ}`
-    }
-
-    addCellForVoxel(x: number, y: number, z: number) {
-        const cellId = this.computeCellId(x, y, z)
-        let cell = this.cells[cellId]
-        if (!cell) {
-            const {cellSize} = this
-            cell = new Uint8Array(cellSize * cellSize * cellSize)
-            this.cells[cellId] = cell
-        }
-        return cell
-    }
-
-    getCellForVoxel(x: number, y: number, z: number) {
-        return this.cells[this.computeCellId(x, y, z)]
-    }
-
-    setVoxel(x: number, y: number, z: number, v: number, addCell = true) {
-        let cell = this.getCellForVoxel(x, y, z)
-        if (!cell) {
-            if (!addCell) {
-                return
-            }
-            cell = this.addCellForVoxel(x, y, z)
-        }
-        const voxelOffset = this.computeVoxelOffset(x, y, z)
-        cell[voxelOffset] = v
-    }
-
-    getVoxel(x: number, y: number, z: number): number {
-        const cell = this.getCellForVoxel(x, y, z)
-        if (!cell) {
-            return 0
-        }
-        const voxelOffset = this.computeVoxelOffset(x, y, z)
-        return cell[voxelOffset]
+    createCellMesh = (x: number, y: number, z: number) => {
+        const cellId = this.world.computeChunkId({x, y, z})
+        const mesh = new Mesh(new BufferGeometry(), this.textureInfos.material)
+        mesh.name = cellId
+        this.chunkIdToMesh[cellId] = mesh
+        return mesh
     }
 
     // from
@@ -114,7 +172,7 @@ export class VoxelWorld {
 
         // main loop along raycast vector
         while (t <= len) {
-            const voxel = this.getVoxel(ix, iy, iz)
+            const voxel = this.world.getVoxel({x: ix, y: iy, z: iz})
             if (voxel) {
                 return {
                     position: [
@@ -127,7 +185,6 @@ export class VoxelWorld {
                         steppedIndex === 1 ? -stepY : 0,
                         steppedIndex === 2 ? -stepZ : 0,
                     ],
-                    voxel,
                 }
             }
 
@@ -159,6 +216,121 @@ export class VoxelWorld {
             }
         }
         return null
+    }
+
+    generateChunk(x: number, y: number, z: number) {
+        const updatedCellIds = {}
+        for (const offset of this.neighborOffsets) {
+            const ox = x + offset[0]
+            const oy = y + offset[1]
+            const oz = z + offset[2]
+            const cellId = this.world.computeChunkId({x: ox, y: oy, z: oz})
+            if (!updatedCellIds[cellId]) {
+                updatedCellIds[cellId] = true
+                let mesh = this.getChunkMesh(ox, oy, oz)
+
+                if (!mesh) {
+                    mesh = this.createCellMesh(ox, oy, oz)
+                    this.parent.add(mesh)
+                    mesh.position.set(ox, oy, oz)
+                }
+                this.updateChunkGeometry(ox, oy, oz)
+            }
+        }
+    }
+
+    private updateChunkGeometry(x: number, y: number, z: number) {
+        const {chunkSize} = this.world
+        const cellX = Math.floor(x / chunkSize)
+        const cellY = Math.floor(y / chunkSize)
+        const cellZ = Math.floor(z / chunkSize)
+        let mesh = this.getChunkMesh(x, y, z)
+
+        const geometry = mesh.geometry
+        const {positions, normals, uvs, indices} = this.generateGeometryDataForChunk(cellX, cellY, cellZ)
+        const positionNumComponents = 3
+        geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), positionNumComponents))
+        const normalNumComponents = 3
+        geometry.setAttribute('normal', new BufferAttribute(new Float32Array(normals), normalNumComponents))
+        const uvNumComponents = 2
+        geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), uvNumComponents))
+        geometry.setIndex(indices)
+        geometry.computeBoundingSphere()
+    }
+
+    generateUnits() {
+        const {parent, world} = this
+        this.cubes.push(...Array.from(this.world.unitsToPositions.entries()).map(({1: p}) => {
+            const mesh = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshStandardMaterial({roughness: 0}))
+            const y = world.getHeight(p.x, p.z)
+            console.log (y)
+            mesh.position.set(p.x + 0.5, y + 0.3, p.z + 0.5)
+            parent.add(mesh)
+            return new Cube(mesh)
+        }))
+
+    }
+
+    private generateGeometryDataForChunk(cellX: number, cellY: number, cellZ: number) {
+        const {tileSize, tileTextureWidth, tileTextureHeight} = this.textureInfos
+        const {chunkSize} = this.world
+        const positions = []
+        const normals = []
+        const uvs = []
+        const indices = []
+        const startX = cellX * chunkSize
+        const startY = cellY * chunkSize
+        const startZ = cellZ * chunkSize
+
+        for (let y = 0; y < chunkSize; ++y) {
+            const voxelY = startY + y
+            for (let z = 0; z < chunkSize; ++z) {
+                const voxelZ = startZ + z
+                for (let x = 0; x < chunkSize; ++x) {
+                    const voxelX = startX + x
+                    const voxel = this.world.getVoxel({x: voxelX, y: voxelY, z: voxelZ})
+                    if (voxel) {
+                        // voxel 0 is sky (empty) so for UVs we start at 0
+                        const uvVoxel = voxel - 1
+                        // There is a voxel here but do we need faces for it?
+                        for (const {dir, corners, uvRow} of FACES) {
+                            const neighbor = this.world.getVoxel(
+                                {
+                                    x: voxelX + dir[0],
+                                    y: voxelY + dir[1],
+                                    z: voxelZ + dir[2]
+                                })
+                            if (!neighbor) {
+                                // this voxel has no neighbor in this direction so we need a face.
+                                const ndx = positions.length / 3
+                                for (const {pos, uv} of corners) {
+                                    positions.push(pos[0] + x, pos[1] + y, pos[2] + z)
+                                    normals.push(...dir)
+                                    uvs.push(
+                                        (uvVoxel + uv[0]) * tileSize / tileTextureWidth,
+                                        1 - (uvRow + 1 - uv[1]) * tileSize / tileTextureHeight)
+                                }
+                                indices.push(
+                                    ndx, ndx + 1, ndx + 2,
+                                    ndx + 2, ndx + 1, ndx + 3,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return {
+            positions,
+            normals,
+            uvs,
+            indices,
+        }
+    }
+
+    render = (time: number) => {
+        this.cubes.forEach(cube => cube.render(time))
     }
 }
 

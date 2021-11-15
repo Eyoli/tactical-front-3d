@@ -42,7 +42,7 @@ function calculateSquare(matrix: Matrix, chunkSize: number, randomFactor: number
                 TOP_RIGHT
             ].reduce(
                 (result, value) => {
-                    if (isFinite(value) && value != null) {
+                    if (value != null && isFinite(value)) {
                         result.sum += value
                         result.count += 1
                     }
@@ -66,7 +66,7 @@ function calculateDiamond(matrix: Matrix, chunkSize: number, randomFactor: numbe
             const RIGHT = matrix[y][x + half]
             const { count, sum } = [BOTTOM, LEFT, TOP, RIGHT].reduce(
                 (result, value) => {
-                    if (isFinite(value) && value != null) {
+                    if (value != null && isFinite(value)) {
                         result.sum += value
                         result.count += 1
                     }

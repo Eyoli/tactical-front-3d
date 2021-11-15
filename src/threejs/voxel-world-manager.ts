@@ -1,53 +1,55 @@
-import * as THREE from "three"
-import {MeshLambertMaterial, PerspectiveCamera, Renderer, Scene} from "three"
+import {
+    Color,
+    DirectionalLight,
+    PerspectiveCamera,
+    PlaneGeometry,
+    PMREMGenerator,
+    Renderer,
+    RepeatWrapping,
+    Scene,
+    TextureLoader,
+    Vector3,
+    WebGLRenderer
+} from "three"
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
 import {VoxelWorld} from "./voxel-world"
-import {VoxelWorldGenerator} from "./voxel-world-generator"
+import {Water} from "three/examples/jsm/objects/Water"
+import {Sky} from "three/examples/jsm/objects/Sky"
+
+const resizeRendererToDisplaySize = (renderer: Renderer) => {
+    const canvas = renderer.domElement
+    const width = canvas.clientWidth
+    const height = canvas.clientHeight
+    const needResize = canvas.width !== width || canvas.height !== height
+    if (needResize) {
+        renderer.setSize(width, height, false)
+    }
+    return needResize
+}
 
 export class VoxelWorldManager {
-    readonly scene: Scene
-    readonly camera: PerspectiveCamera
-    readonly controls: OrbitControls
-    readonly material: MeshLambertMaterial
-
-    readonly world: VoxelWorld
-    private readonly worldGenerator: VoxelWorldGenerator
-    private readonly cellSize: number
-    private cellIdToMesh = {}
-    private neighborOffsets = [
-        [0, 0, 0], // self
-        [-1, 0, 0], // left
-        [1, 0, 0], // right
-        [0, -1, 0], // down
-        [0, 1, 0], // up
-        [0, 0, -1], // back
-        [0, 0, 1], // front
-    ]
+    private readonly voxelWorld: VoxelWorld
+    private readonly scene: Scene
+    private readonly renderer: WebGLRenderer
+    private pmremGenerator: PMREMGenerator
+    private readonly camera: PerspectiveCamera
+    private readonly controls: OrbitControls
+    private water?: Water
+    private parameters = {
+        elevation: 2,
+        azimuth: 180
+    }
 
     constructor(
-        world: VoxelWorld,
-        worldGenerator: VoxelWorldGenerator,
-        material: MeshLambertMaterial,
-        canvas: HTMLCanvasElement,
-        cellSize: number) {
-        this.world = world
-        this.worldGenerator = worldGenerator
-        this.material = material
-        this.cellSize = cellSize
+        voxelWorld: VoxelWorld,
+        renderer: Renderer,
+        camera: PerspectiveCamera,
+        controls: OrbitControls) {
+        this.voxelWorld = voxelWorld
 
-        const scene = new THREE.Scene()
-        scene.background = new THREE.Color('lightblue')
-
-        const fov = 75
-        const aspect = 2  // the canvas default
-        const near = 0.1
-        const far = 1000
-        const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
-        camera.position.set(-cellSize * .3, cellSize * .8, -cellSize * .3)
-
-        const controls = new OrbitControls(camera, canvas)
-        controls.target.set(cellSize / 2, cellSize / 3, cellSize / 2)
-        controls.update()
+        const scene = new Scene()
+        scene.background = new Color('lightblue')
+        scene.add((voxelWorld.parent))
 
         this.scene = scene
         this.camera = camera
@@ -57,66 +59,83 @@ export class VoxelWorldManager {
     addLight(x: number, y: number, z: number) {
         const color = 0xFFFFFF
         const intensity = 1
-        const light = new THREE.DirectionalLight(color, intensity)
+        const light = new DirectionalLight(color, intensity)
         light.position.set(x, y, z)
         this.scene.add(light)
     }
 
-    updateCellGeometry(x: number, y: number, z: number) {
-        const cellX = Math.floor(x / this.cellSize)
-        const cellY = Math.floor(y / this.cellSize)
-        const cellZ = Math.floor(z / this.cellSize)
-        const cellId = this.world.computeCellId(x, y, z)
-        let mesh = this.cellIdToMesh[cellId]
-        const geometry = mesh ? mesh.geometry : new THREE.BufferGeometry()
+    addWater() {
+        const waterGeometry = new PlaneGeometry(10000, 10000)
 
-        const {positions, normals, uvs, indices} = this.worldGenerator.generateGeometryDataForCell(this.world, cellX, cellY, cellZ)
-        const positionNumComponents = 3
-        geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), positionNumComponents))
-        const normalNumComponents = 3
-        geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), normalNumComponents))
-        const uvNumComponents = 2
-        geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), uvNumComponents))
-        geometry.setIndex(indices)
-        geometry.computeBoundingSphere()
-
-        if (!mesh) {
-            mesh = new THREE.Mesh(geometry, this.material)
-            mesh.name = cellId
-            this.cellIdToMesh[cellId] = mesh
-            this.scene.add(mesh)
-            mesh.position.set(cellX * this.cellSize, cellY * this.cellSize, cellZ * this.cellSize)
-        }
-    }
-
-    updateVoxelGeometry(x: number, y: number, z: number) {
-        const updatedCellIds = {}
-        for (const offset of this.neighborOffsets) {
-            const ox = x + offset[0]
-            const oy = y + offset[1]
-            const oz = z + offset[2]
-            const cellId = this.world.computeCellId(ox, oy, oz)
-            if (!updatedCellIds[cellId]) {
-                updatedCellIds[cellId] = true
-                this.updateCellGeometry(ox, oy, oz)
+        const water = new Water(
+            waterGeometry,
+            {
+                textureWidth: 512,
+                textureHeight: 512,
+                waterNormals: new TextureLoader().load('waternormals.jpg', function (texture) {
+                    texture.wrapS = texture.wrapT = RepeatWrapping
+                }),
+                sunDirection: new Vector3(),
+                sunColor: 0xffffff,
+                waterColor: 0x001e0f,
+                distortionScale: 3.7,
+                fog: this.scene.fog !== undefined
             }
+        )
+
+        water.rotation.x = -Math.PI / 2
+
+        this.scene.add(water)
+        this.water = water
+    }
+
+    addSky() {
+        const sky = new Sky()
+        sky.scale.setScalar(10000)
+        this.scene.add(sky)
+
+        const skyUniforms = sky.material.uniforms
+
+        skyUniforms['turbidity'].value = 10
+        skyUniforms['rayleigh'].value = 2
+        skyUniforms['mieCoefficient'].value = 0.005
+        skyUniforms['mieDirectionalG'].value = 0.8
+        this.pmremGenerator = new PMREMGenerator(this.renderer)
+
+        // this.updateSun()
+    }
+
+    // private updateSun() {
+    //     const {water, scene, pmremGenerator, sky, sun, parameters} = this
+    //
+    //     const phi = MathUtils.degToRad(90 - parameters.elevation)
+    //     const theta = MathUtils.degToRad(parameters.azimuth)
+    //
+    //     sun.setFromSphericalCoords(1, phi, theta)
+    //
+    //     sky.material.uniforms['sunPosition'].value.copy(sun)
+    //     water?.material?.uniforms['sunDirection'].value.copy(sun).normalize()
+    //
+    //     scene.environment = pmremGenerator.fromScene(sky).texture
+    // }
+
+    generateChunk(x: number, y: number, z: number) {
+        this.voxelWorld.generateChunk(x, y, z)
+        this.voxelWorld.generateUnits()
+    }
+
+    render(renderer: Renderer) {
+        const time = performance.now() * 0.001
+        if (this.water) this.water.material.uniforms['time'].value += 0.1 / 60.0
+
+        if (resizeRendererToDisplaySize(renderer)) {
+            const canvas = renderer.domElement
+            this.camera.aspect = canvas.clientWidth / canvas.clientHeight
+            this.camera.updateProjectionMatrix()
         }
+
+        this.voxelWorld.render(time)
+        this.controls.update()
+        renderer.render(this.scene, this.camera)
     }
-
-    resizeRendererToDisplaySize(renderer: Renderer) {
-        const canvas = renderer.domElement
-        const width = canvas.clientWidth
-        const height = canvas.clientHeight
-        const needResize = canvas.width !== width || canvas.height !== height
-        if (needResize) {
-            renderer.setSize(width, height, false)
-        }
-        return needResize
-    }
-
-    generateVoxels() {
-        this.worldGenerator.generate(this.world)
-    }
-
-
 }
