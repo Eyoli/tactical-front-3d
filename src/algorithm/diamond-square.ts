@@ -104,7 +104,7 @@ function normalizeMatrix(matrix: Matrix): Matrix {
     })
 }
 
-export const generateTerrain = (length: number, width: number, maxHeight: number) => {
+export const generateTerrain = (length: number, width: number, maxHeight: number, minHeight: number = 0) => {
     const normalizedMatrix = normalizeMatrix(diamondSquare(generateMatrix()))
     const matrix: Matrix = []
     for (let i = 0; i < length; i++) {
@@ -112,7 +112,7 @@ export const generateTerrain = (length: number, width: number, maxHeight: number
         for (let j = 0; j < width; j++) {
             const x = Math.floor(i * normalizedMatrix.length / length)
             const y = Math.floor(j * normalizedMatrix[x].length / width)
-            matrix[i][j] = normalizedMatrix[x][y] * maxHeight
+            matrix[i][j] = minHeight + normalizedMatrix[x][y] * (maxHeight - minHeight)
         }
     }
     return matrix

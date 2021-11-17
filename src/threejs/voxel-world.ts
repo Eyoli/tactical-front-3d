@@ -1,26 +1,40 @@
 import {
+    AnimationAction,
+    AnimationClip,
+    AnimationMixer,
     BoxGeometry,
     BufferAttribute,
     BufferGeometry,
     Group,
     Mesh,
     MeshLambertMaterial,
-    MeshStandardMaterial
+    MeshStandardMaterial, Quaternion,
+    QuaternionKeyframeTrack, Vector3
 } from "three"
 import {Position3D, World} from "../model/world"
 
-class Cube {
+class UnitMesh {
     readonly mesh: Mesh
+    readonly idle: AnimationAction
 
-    constructor(mesh: Mesh) {
+    constructor(mesh: Mesh, idleAnimationClip: AnimationClip) {
         this.mesh = mesh
+        const mixer = new AnimationMixer(mesh)
+        this.idle = mixer.clipAction(idleAnimationClip)
     }
+}
 
-    render = (time: number) => {
-        // this.mesh.position.y = Math.sin(time) * 20 + 5
-        this.mesh.rotation.x = time * 0.5
-        this.mesh.rotation.z = time * 0.51
-    }
+const initUnit = (): UnitMesh => {
+    const mesh = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshStandardMaterial({roughness: 0}))
+
+    // animations
+    const xAxis = new Vector3( 1, 0, 0 )
+    const qInitial = new Quaternion().setFromAxisAngle( xAxis, 0 )
+    const qFinal = new Quaternion().setFromAxisAngle( xAxis, Math.PI )
+    const quaternionKF = new QuaternionKeyframeTrack( '.quaternion', [ 0, 1, 2 ], [ qInitial.x, qInitial.y, qInitial.z, qInitial.w, qFinal.x, qFinal.y, qFinal.z, qFinal.w, qInitial.x, qInitial.y, qInitial.z, qInitial.w ] )
+    const idleAnimationClip = new AnimationClip('idle', -1, [quaternionKF])
+
+    return new UnitMesh(mesh, idleAnimationClip)
 }
 
 const FACES = [
@@ -102,7 +116,7 @@ export class VoxelWorld {
     private readonly world: World
     private readonly textureInfos: TextureInfos
     private readonly chunkIdToMesh = {}
-    private readonly cubes: Cube[] = []
+    private readonly units: UnitMesh[] = []
     readonly parent = new Group()
 
     private readonly neighborOffsets = [
@@ -121,12 +135,12 @@ export class VoxelWorld {
     }
 
     getChunkMesh = (x: number, y: number, z: number): Mesh<BufferGeometry, MeshLambertMaterial> => {
-        const cellId = this.world.computeChunkId({x, y, z})
+        const cellId = this.world.worldMap.computeChunkId({x, y, z})
         return this.chunkIdToMesh[cellId]
     }
 
     createCellMesh = (x: number, y: number, z: number) => {
-        const cellId = this.world.computeChunkId({x, y, z})
+        const cellId = this.world.worldMap.computeChunkId({x, y, z})
         const mesh = new Mesh(new BufferGeometry(), this.textureInfos.material)
         mesh.name = cellId
         this.chunkIdToMesh[cellId] = mesh
@@ -172,7 +186,7 @@ export class VoxelWorld {
 
         // main loop along raycast vector
         while (t <= len) {
-            const voxel = this.world.getVoxel({x: ix, y: iy, z: iz})
+            const voxel = this.world.worldMap.getVoxel({x: ix, y: iy, z: iz})
             if (voxel) {
                 return {
                     position: [
@@ -224,7 +238,7 @@ export class VoxelWorld {
             const ox = x + offset[0]
             const oy = y + offset[1]
             const oz = z + offset[2]
-            const cellId = this.world.computeChunkId({x: ox, y: oy, z: oz})
+            const cellId = this.world.worldMap.computeChunkId({x: ox, y: oy, z: oz})
             if (!updatedCellIds[cellId]) {
                 updatedCellIds[cellId] = true
                 let mesh = this.getChunkMesh(ox, oy, oz)
@@ -240,7 +254,7 @@ export class VoxelWorld {
     }
 
     private updateChunkGeometry(x: number, y: number, z: number) {
-        const {chunkSize} = this.world
+        const {chunkSize} = this.world.worldMap
         const cellX = Math.floor(x / chunkSize)
         const cellY = Math.floor(y / chunkSize)
         const cellZ = Math.floor(z / chunkSize)
@@ -258,22 +272,21 @@ export class VoxelWorld {
         geometry.computeBoundingSphere()
     }
 
-    generateUnits() {
+    generateUnits = () => {
         const {parent, world} = this
-        this.cubes.push(...Array.from(this.world.unitsToPositions.entries()).map(({1: p}) => {
-            const mesh = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshStandardMaterial({roughness: 0}))
-            const y = world.getHeight(p.x, p.z)
-            console.log (y)
-            mesh.position.set(p.x + 0.5, y + 0.3, p.z + 0.5)
-            parent.add(mesh)
-            return new Cube(mesh)
+        this.units.push(...Array.from(world.unitsToPositions.entries()).map(({1: p}) => {
+            const unit = initUnit()
+            unit.idle.play()
+            unit.mesh.position.set(p.x + 0.5, p.y + 0.3, p.z + 0.5)
+            parent.add(unit.mesh)
+            return unit
         }))
 
     }
 
     private generateGeometryDataForChunk(cellX: number, cellY: number, cellZ: number) {
         const {tileSize, tileTextureWidth, tileTextureHeight} = this.textureInfos
-        const {chunkSize} = this.world
+        const {chunkSize} = this.world.worldMap
         const positions = []
         const normals = []
         const uvs = []
@@ -288,13 +301,13 @@ export class VoxelWorld {
                 const voxelZ = startZ + z
                 for (let x = 0; x < chunkSize; ++x) {
                     const voxelX = startX + x
-                    const voxel = this.world.getVoxel({x: voxelX, y: voxelY, z: voxelZ})
+                    const voxel = this.world.worldMap.getVoxel({x: voxelX, y: voxelY, z: voxelZ})
                     if (voxel) {
                         // voxel 0 is sky (empty) so for UVs we start at 0
                         const uvVoxel = voxel - 1
                         // There is a voxel here but do we need faces for it?
                         for (const {dir, corners, uvRow} of FACES) {
-                            const neighbor = this.world.getVoxel(
+                            const neighbor = this.world.worldMap.getVoxel(
                                 {
                                     x: voxelX + dir[0],
                                     y: voxelY + dir[1],
@@ -329,8 +342,8 @@ export class VoxelWorld {
         }
     }
 
-    render = (time: number) => {
-        this.cubes.forEach(cube => cube.render(time))
+    update = (time: number) => {
+        this.units.forEach((unit) => unit.idle.getMixer().update(time))
     }
 }
 

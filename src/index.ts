@@ -4,13 +4,18 @@ import {VoxelWorldManager} from "./threejs/voxel-world-manager"
 import {BasicVoxelWorldGenerator} from "./threejs/voxel-world-generator"
 import {stats} from "./monitoring/stats"
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
-import {World} from "./model/world"
+import {World, WorldMap} from "./model/world"
+import {ACESFilmicToneMapping, WebGLRenderer} from "three"
 
 function main() {
-    const renderer = new THREE.WebGLRenderer()
+    const renderer = new WebGLRenderer()
+    renderer.setPixelRatio(window.devicePixelRatio)
+    renderer.setSize(window.innerWidth, window.innerHeight)
+    renderer.toneMapping = ACESFilmicToneMapping
+    renderer.toneMappingExposure = 0.5
+
     const canvas = renderer.domElement
     document.body.append(canvas)
-    renderer.setSize(window.innerWidth, window.innerHeight)
 
     const cellSize = 15
 
@@ -34,8 +39,8 @@ function main() {
     // Camera
     const fov = 75
     const aspect = 2  // the canvas default
-    const near = 0.1
-    const far = 1000
+    const near = 1
+    const far = 20000
     const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
     camera.position.set(-cellSize * .3, cellSize * .8, -cellSize * .3)
 
@@ -44,23 +49,24 @@ function main() {
     controls.target.set(cellSize / 2, cellSize / 3, cellSize / 2)
     controls.update()
 
-    const world = new World(cellSize)
+    const worldMap = new WorldMap(cellSize)
     const worldGenerator = new BasicVoxelWorldGenerator(
         cellSize,
         cellSize,
-        15,
+        8,
     )
-    worldGenerator.generate(world)
-    worldGenerator.generate(world, cellSize, 0, 0)
+    worldGenerator.generate(worldMap)
+    const world = new World(worldMap)
     const voxelWorld = new VoxelWorld({
         world,
         textureInfos
     })
 
-    const manager = new VoxelWorldManager(voxelWorld, renderer, camera, controls)
+    const manager = new VoxelWorldManager(voxelWorld, camera, controls)
     manager.addLight(-1, 2, 4)
-    manager.addLight(1, -1, -2)
+    //manager.addLight(1, -1, -2)
     manager.addWater()
+    manager.addSky(renderer)
 
     // 0,0,0 will generate
     manager.generateChunk(0, 0, 0)
@@ -69,9 +75,9 @@ function main() {
     let renderRequested: boolean | undefined = false
 
     function render() {
+        requestAnimationFrame(render)
         renderRequested = undefined
         manager.render(renderer)
-        requestAnimationFrame(render)
     }
 
     stats()

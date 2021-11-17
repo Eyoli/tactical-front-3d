@@ -1,9 +1,10 @@
 import {
-    Color,
+    BoxGeometry,
+    Clock,
     DirectionalLight,
+    MathUtils, Mesh, MeshStandardMaterial,
     PerspectiveCamera,
-    PlaneGeometry,
-    PMREMGenerator,
+    PlaneGeometry, PMREMGenerator,
     Renderer,
     RepeatWrapping,
     Scene,
@@ -15,6 +16,26 @@ import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
 import {VoxelWorld} from "./voxel-world"
 import {Water} from "three/examples/jsm/objects/Water"
 import {Sky} from "three/examples/jsm/objects/Sky"
+
+const clock = new Clock()
+
+const updateSky = (effectController: any, renderer: WebGLRenderer, sky: Sky, sun: Vector3, water?: Water) => {
+
+    const uniforms = sky.material.uniforms
+    uniforms['turbidity'].value = effectController.turbidity
+    uniforms['rayleigh'].value = effectController.rayleigh
+    uniforms['mieCoefficient'].value = effectController.mieCoefficient
+    uniforms['mieDirectionalG'].value = effectController.mieDirectionalG
+
+    const phi = MathUtils.degToRad(90 - effectController.elevation)
+    const theta = MathUtils.degToRad(effectController.azimuth)
+    sun.setFromSphericalCoords(1, phi, theta)
+
+    uniforms['sunPosition'].value.copy(sun)
+    water?.material.uniforms['sunDirection'].value.copy(sun).normalize()
+
+    renderer.toneMappingExposure = effectController.exposure
+}
 
 const resizeRendererToDisplaySize = (renderer: Renderer) => {
     const canvas = renderer.domElement
@@ -30,25 +51,29 @@ const resizeRendererToDisplaySize = (renderer: Renderer) => {
 export class VoxelWorldManager {
     private readonly voxelWorld: VoxelWorld
     private readonly scene: Scene
-    private readonly renderer: WebGLRenderer
-    private pmremGenerator: PMREMGenerator
     private readonly camera: PerspectiveCamera
     private readonly controls: OrbitControls
-    private water?: Water
-    private parameters = {
-        elevation: 2,
-        azimuth: 180
+    private effectController = {
+        turbidity: 10,
+        rayleigh: 3,
+        mieCoefficient: 0.005,
+        mieDirectionalG: 0.7,
+        elevation: 15,
+        azimuth: 180,
+        exposure: 0.5
     }
+
+    private water?: Water
+    private sky?: Sky
+    private sun?: Vector3
 
     constructor(
         voxelWorld: VoxelWorld,
-        renderer: Renderer,
         camera: PerspectiveCamera,
         controls: OrbitControls) {
         this.voxelWorld = voxelWorld
 
         const scene = new Scene()
-        scene.background = new Color('lightblue')
         scene.add((voxelWorld.parent))
 
         this.scene = scene
@@ -89,52 +114,42 @@ export class VoxelWorldManager {
         this.water = water
     }
 
-    addSky() {
-        const sky = new Sky()
-        sky.scale.setScalar(10000)
-        this.scene.add(sky)
+    addSky(renderer: WebGLRenderer) {
+        this.sky = new Sky()
+        this.sky.scale.setScalar(10000)
+        this.scene.add(this.sky)
 
-        const skyUniforms = sky.material.uniforms
+        this.sun = new Vector3()
 
-        skyUniforms['turbidity'].value = 10
-        skyUniforms['rayleigh'].value = 2
-        skyUniforms['mieCoefficient'].value = 0.005
-        skyUniforms['mieDirectionalG'].value = 0.8
-        this.pmremGenerator = new PMREMGenerator(this.renderer)
-
-        // this.updateSun()
+        updateSky(this.effectController, renderer, this.sky, this.sun, this.water)
+        // const color = 0xFFFFFF
+        // const sunlight = new DirectionalLight(color, 1)
+        // sunlight.position.set(this.sun.x, this.sun.y, this.sun.z)
+        // this.scene.add(sunlight)
     }
-
-    // private updateSun() {
-    //     const {water, scene, pmremGenerator, sky, sun, parameters} = this
-    //
-    //     const phi = MathUtils.degToRad(90 - parameters.elevation)
-    //     const theta = MathUtils.degToRad(parameters.azimuth)
-    //
-    //     sun.setFromSphericalCoords(1, phi, theta)
-    //
-    //     sky.material.uniforms['sunPosition'].value.copy(sun)
-    //     water?.material?.uniforms['sunDirection'].value.copy(sun).normalize()
-    //
-    //     scene.environment = pmremGenerator.fromScene(sky).texture
-    // }
 
     generateChunk(x: number, y: number, z: number) {
         this.voxelWorld.generateChunk(x, y, z)
         this.voxelWorld.generateUnits()
     }
 
-    render(renderer: Renderer) {
-        const time = performance.now() * 0.001
+    render(renderer: WebGLRenderer) {
+        const delta = clock.getDelta()
         if (this.water) this.water.material.uniforms['time'].value += 0.1 / 60.0
 
-        if (resizeRendererToDisplaySize(renderer)) {
-            const canvas = renderer.domElement
-            this.camera.aspect = canvas.clientWidth / canvas.clientHeight
-            this.camera.updateProjectionMatrix()
+        if (this.sky && this.sun) {
+            this.effectController.azimuth = (this.effectController.azimuth + 1) % 360
+            updateSky(this.effectController, renderer, this.sky, this.sun, this.water)
         }
 
-        this.voxelWorld.render(time)
+
+        // if (resizeRendererToDisplaySize(renderer)) {
+        //     const canvas = renderer.domElement
+        //     this.camera.aspect = canvas.clientWidth / canvas.clientHeight
+        //     this.camera.updateProjectionMatrix()
+        // }
+
+        this.voxelWorld.update(delta)
         this.controls.update()
         renderer.render(this.scene, this.camera)
     }
