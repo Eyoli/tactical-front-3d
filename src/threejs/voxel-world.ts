@@ -6,10 +6,12 @@ import {
     BufferAttribute,
     BufferGeometry,
     Group,
+    Material,
     Mesh,
-    MeshLambertMaterial,
-    MeshStandardMaterial, Quaternion,
-    QuaternionKeyframeTrack, Vector3
+    MeshStandardMaterial,
+    Quaternion,
+    QuaternionKeyframeTrack,
+    Vector3
 } from "three"
 import {Position3D, World} from "../model/world"
 
@@ -28,10 +30,10 @@ const initUnit = (): UnitMesh => {
     const mesh = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshStandardMaterial({roughness: 0}))
 
     // animations
-    const xAxis = new Vector3( 1, 0, 0 )
-    const qInitial = new Quaternion().setFromAxisAngle( xAxis, 0 )
-    const qFinal = new Quaternion().setFromAxisAngle( xAxis, Math.PI )
-    const quaternionKF = new QuaternionKeyframeTrack( '.quaternion', [ 0, 1, 2 ], [ qInitial.x, qInitial.y, qInitial.z, qInitial.w, qFinal.x, qFinal.y, qFinal.z, qFinal.w, qInitial.x, qInitial.y, qInitial.z, qInitial.w ] )
+    const xAxis = new Vector3(1, 0, 0)
+    const qInitial = new Quaternion().setFromAxisAngle(xAxis, 0)
+    const qFinal = new Quaternion().setFromAxisAngle(xAxis, Math.PI)
+    const quaternionKF = new QuaternionKeyframeTrack('.quaternion', [0, 1, 2], [qInitial.x, qInitial.y, qInitial.z, qInitial.w, qFinal.x, qFinal.y, qFinal.z, qFinal.w, qInitial.x, qInitial.y, qInitial.z, qInitial.w])
     const idleAnimationClip = new AnimationClip('idle', -1, [quaternionKF])
 
     return new UnitMesh(mesh, idleAnimationClip)
@@ -101,7 +103,7 @@ const FACES = [
 ]
 
 export type TextureInfos = {
-    material: MeshLambertMaterial
+    material: Material
     tileSize: number
     tileTextureHeight: number
     tileTextureWidth: number
@@ -134,14 +136,14 @@ export class VoxelWorld {
         this.textureInfos = textureInfos
     }
 
-    getChunkMesh = (x: number, y: number, z: number): Mesh<BufferGeometry, MeshLambertMaterial> => {
+    getChunkMesh = (x: number, y: number, z: number): Mesh => {
         const cellId = this.world.worldMap.computeChunkId({x, y, z})
         return this.chunkIdToMesh[cellId]
     }
 
-    createCellMesh = (x: number, y: number, z: number) => {
+    createCellMesh = (x: number, y: number, z: number): Mesh => {
         const cellId = this.world.worldMap.computeChunkId({x, y, z})
-        const mesh = new Mesh(new BufferGeometry(), this.textureInfos.material)
+        const mesh = new Mesh<BufferGeometry, Material>(new BufferGeometry(), this.textureInfos.material)
         mesh.name = cellId
         this.chunkIdToMesh[cellId] = mesh
         return mesh
