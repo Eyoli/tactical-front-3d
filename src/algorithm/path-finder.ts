@@ -32,7 +32,7 @@ class PathFinder<N, K> {
     readonly graph: Graph<N, K>
     readonly startNode: N
     readonly endNode: N
-    private readonly nodesState: Map<N, NodeState<N>>
+    private readonly nodesState: Map<K, NodeState<N>>
     private neighbourFilter?: EdgeFilter<N>
 
     constructor(graph: Graph<N, K>, startNode: N, endNode: N) {
@@ -47,7 +47,8 @@ class PathFinder<N, K> {
         return this
     }
 
-    private getNodeState(key: N) {
+    private getNodeState(node: N) {
+        const key = this.graph.getNodeKey(node)
         let state = this.nodesState.get(key)
         if (!state) {
             state = new NodeState()
@@ -56,16 +57,22 @@ class PathFinder<N, K> {
         return state
     }
 
-    find(): Path<N> {
+    find(maxIterations: number = 100): Path<N> {
         const endNodeKey = this.graph.getNodeKey(this.endNode)
 
         let currentNode = this.startNode
         this.getNodeState(currentNode).cost = 0
         const candidates: N[] = []
 
+        // console.log('from', this.startNode)
+        // console.log('to', this.endNode)
+
+        let i = 0
         while (currentNode
-        && this.graph.getNodeKey(currentNode) !== endNodeKey) {
-            // console.log('node: ', currentNode);
+        && this.graph.getNodeKey(currentNode) !== endNodeKey
+        && i < maxIterations) {
+            i++
+            // console.log('node', currentNode, i)
 
             const currentNodeState = this.getNodeState(currentNode)
             currentNodeState.tested = true
@@ -91,7 +98,7 @@ class PathFinder<N, K> {
                 }
             }
 
-            // console.log('candidates: ', candidates);
+            // console.log('candidates: ', candidates)
 
             let nextEstimatedCost = Infinity
             let nextIndex = 0
@@ -109,7 +116,7 @@ class PathFinder<N, K> {
             currentNode = candidate[0]
         }
 
-        if (currentNode) {
+        if (currentNode && i < maxIterations) {
             const totalCost = this.getNodeState(currentNode).cost
             const shortestPath = []
             shortestPath.push(currentNode)
@@ -119,6 +126,8 @@ class PathFinder<N, K> {
                 shortestPath.unshift(state.previous)
                 state = this.getNodeState(state.previous)
             }
+
+            // console.log(shortestPath, totalCost)
 
             return {path: shortestPath, cost: totalCost}
         }

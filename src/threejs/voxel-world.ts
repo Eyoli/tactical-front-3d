@@ -11,18 +11,49 @@ import {
     MeshStandardMaterial,
     Quaternion,
     QuaternionKeyframeTrack,
-    Vector3
+    Vector3,
+    VectorKeyframeTrack
 } from "three"
-import {Position3D, World} from "../model/world"
+import {Position3D, Unit, World} from "../model/world"
+import {LoopOnce} from "three/src/constants"
 
 class UnitMesh {
     readonly mesh: Mesh
     readonly idle: AnimationAction
+    move?: AnimationAction
 
     constructor(mesh: Mesh, idleAnimationClip: AnimationClip) {
         this.mesh = mesh
         const mixer = new AnimationMixer(mesh)
         this.idle = mixer.clipAction(idleAnimationClip)
+    }
+
+    computeMovingAnimation(path: Position3D[]) {
+        const object = this
+        const values: number[] = [], times: number[] = []
+        path.forEach(({x, y, z}, i) => {
+            if (i > 0 && y - path[i - 1].y > 0) {
+                values.push(path[i - 1].x + 0.5, y + 0.5, path[i - 1].z + 0.5)
+                times.push(values.length / 3)
+            } else if (i > 0 && y - path[i - 1].y < 0) {
+                values.push(x + 0.5, path[i - 1].y + 0.5, z + 0.5)
+                times.push(values.length / 3)
+            }
+            values.push(x + 0.5, y + 0.5, z + 0.5)
+            times.push(values.length / 3)
+        })
+        const vectorKF = new VectorKeyframeTrack('.position', times, values)
+        const moveAnimationClip = new AnimationClip('move', -1, [vectorKF])
+        const mixer = new AnimationMixer(object.mesh)
+
+        const to = values.slice(values.length - 3)
+        object.mesh.position.set(to[0], to[1], to[2])
+
+        object.move = mixer.clipAction(moveAnimationClip)
+        object.move.setLoop(LoopOnce, 0)
+        mixer.addEventListener('finished', () => {
+            object.move = undefined
+        })
     }
 }
 
@@ -118,7 +149,7 @@ export class VoxelWorld {
     private readonly world: World
     private readonly textureInfos: TextureInfos
     private readonly chunkIdToMesh = {}
-    private readonly units: UnitMesh[] = []
+    private readonly unitsToMesh: Map<Unit, UnitMesh> = new Map<Unit, UnitMesh>()
     readonly parent = new Group()
 
     private readonly neighborOffsets = [
@@ -275,15 +306,25 @@ export class VoxelWorld {
     }
 
     generateUnits = () => {
-        const {parent, world} = this
-        this.units.push(...Array.from(world.unitsToPositions.entries()).map(({1: p}) => {
-            const unit = initUnit()
-            unit.idle.play()
-            unit.mesh.position.set(p.x + 0.5, p.y + 0.3, p.z + 0.5)
-            parent.add(unit.mesh)
-            return unit
-        }))
+        const {parent, world, unitsToMesh} = this
+        Array.from(world.unitsToPositions.entries()).forEach(({0: unit, 1: p}) => {
+            const unitMesh = initUnit()
+            unitMesh.idle.play()
+            unitMesh.mesh.position.set(p.x + 0.5, p.y + 0.3, p.z + 0.5)
+            parent.add(unitMesh.mesh)
+            unitsToMesh.set(unit, unitMesh)
+        })
+    }
 
+    moveUnit = () => {
+        const {world, unitsToMesh} = this
+        world.getUnits().forEach(unit => {
+            const path = world.moveUnit(unit, {x: 9, z: 9})
+            if (path) {
+                unitsToMesh.get(unit)?.computeMovingAnimation(path)
+                unitsToMesh.get(unit)?.move?.play()
+            }
+        })
     }
 
     private generateGeometryDataForChunk(cellX: number, cellY: number, cellZ: number) {
@@ -345,7 +386,10 @@ export class VoxelWorld {
     }
 
     update = (time: number) => {
-        this.units.forEach((unit) => unit.idle.getMixer().update(time))
+        Array.from(this.unitsToMesh.values()).forEach((unit) => {
+            unit.idle.getMixer().update(time)
+            unit.move?.getMixer().update(time)
+        })
     }
 }
 

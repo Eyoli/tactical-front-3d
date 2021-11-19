@@ -5,11 +5,11 @@ const randInt = (min: number, max: number) => {
     return Math.floor(Math.random() * (max - min) + min)
 }
 
-export interface VoxelWorldGenerator {
+export interface WorldMapGenerator {
     generate: (worldMap: WorldMap) => void
 }
 
-export class BasicVoxelWorldGenerator implements VoxelWorldGenerator {
+export class BasicWorldMapGenerator implements WorldMapGenerator {
     private readonly length: number
     private readonly width: number
     private readonly maxHeight: number

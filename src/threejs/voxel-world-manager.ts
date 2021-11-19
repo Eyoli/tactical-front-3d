@@ -5,7 +5,6 @@ import {
     PerspectiveCamera,
     PlaneGeometry,
     PMREMGenerator,
-    Renderer,
     RepeatWrapping,
     Scene,
     TextureLoader,
@@ -18,17 +17,6 @@ import {Water} from "three/examples/jsm/objects/Water"
 import {Sky} from "three/examples/jsm/objects/Sky"
 
 const clock = new Clock()
-
-const resizeRendererToDisplaySize = (renderer: Renderer) => {
-    const canvas = renderer.domElement
-    const width = canvas.clientWidth
-    const height = canvas.clientHeight
-    const needResize = canvas.width !== width || canvas.height !== height
-    if (needResize) {
-        renderer.setSize(width, height, false)
-    }
-    return needResize
-}
 
 export class VoxelWorldManager {
     private readonly voxelWorld: VoxelWorld
@@ -129,9 +117,13 @@ export class VoxelWorldManager {
         scene.environment = pmremGenerator.fromScene(this.sky as any as Scene).texture
     }
 
-    generateChunk(x: number, y: number, z: number) {
+    generateChunk = (x: number, y: number, z: number) => {
         this.voxelWorld.generateChunk(x, y, z)
         this.voxelWorld.generateUnits()
+    }
+
+    moveUnit = () => {
+        this.voxelWorld.moveUnit()
     }
 
     render(renderer: WebGLRenderer) {

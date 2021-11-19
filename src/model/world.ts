@@ -1,9 +1,14 @@
 import {euclideanModulo} from "three/src/math/MathUtils"
-import {Graph} from "../algorithm/path-finder"
+import {Graph, PathFinderManager} from "../algorithm/path-finder"
 
 export type Position3D = {
     x: number
     y: number
+    z: number
+}
+
+export type Position2D = {
+    x: number
     z: number
 }
 
@@ -21,21 +26,21 @@ export class WorldMap implements Graph<Position3D, number> {
     }
 
     getNeighbours = ({x, z}: Position3D): Position3D[] => {
-        const {getVoxel} = this
+        const {getVoxel, getHeight} = this
         return [
-            {x: x - 1, y: this.getHeight(x - 1, z), z},
-            {x: x + 1, y: this.getHeight(x + 1, z), z},
-            {x: x, y: this.getHeight(x, z - 1), z: z - 1},
-            {x: x, y: this.getHeight(x, z + 1), z: z + 1},
-        ].filter(p => getVoxel(p) !== 0)
+            {x: x - 1, y: getHeight(x - 1, z), z},
+            {x: x + 1, y: getHeight(x + 1, z), z},
+            {x: x, y: getHeight(x, z - 1), z: z - 1},
+            {x: x, y: getHeight(x, z + 1), z: z + 1},
+        ].filter(p => getVoxel({x: p.x, y: p.y - 1, z: p.z}) !== 0)
     }
 
-    costBetween = (node: Position3D, neighbour: Position3D): number => {
+    costBetween = (): number => {
         return 1
     }
 
-    distanceBetween = ({x: x1, y: y1}: Position3D, {x: x2, y: y2}: Position3D): number => {
-        return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
+    distanceBetween = ({x: x1, z: z1}: Position3D, {x: x2, z: z2}: Position3D): number => {
+        return Math.sqrt((x2 - x1) * (x2 - x1) + (z2 - z1) * (z2 - z1))
     }
 
     getNodeKey = ({x, y, z}: Position3D) => {
@@ -77,8 +82,8 @@ export class WorldMap implements Graph<Position3D, number> {
         }
         let voxel = chunk[this.getNodeKey(bottom)]
         while (voxel > 0 && bottom.y < this.chunkSize) {
-            voxel = chunk[this.getNodeKey(bottom)]
             bottom.y++
+            voxel = chunk[this.getNodeKey(bottom)]
         }
         return bottom.y
     }
@@ -112,9 +117,34 @@ export class WorldMap implements Graph<Position3D, number> {
 export class World {
     readonly unitsToPositions = new Map<Unit, Position3D>()
     readonly worldMap: WorldMap
+    private pathFinderManager: PathFinderManager<Position3D, number>
 
     constructor(worldMap: WorldMap) {
         this.unitsToPositions.set({}, {x: 1, y: worldMap.getHeight(1, 1), z: 1})
+        this.pathFinderManager = new PathFinderManager()
         this.worldMap = worldMap
+    }
+
+    getUnits = () => {
+        return Array.from(this.unitsToPositions.keys())
+    }
+
+    moveUnit = (unit: Unit, {x, z}: Position2D) => {
+        const from = this.unitsToPositions.get(unit)
+        const to = {
+            x: x,
+            y: this.worldMap.getHeight(x, z),
+            z: z
+        }
+        if (from) {
+            const pathFinder = this.pathFinderManager.getShortestPath(this.worldMap, from, to)
+            const result = pathFinder.find()
+            if (result.path.length > 0) {
+                this.unitsToPositions.set(unit, to)
+            }
+        return result.path
+        }
+
+        return null
     }
 }
