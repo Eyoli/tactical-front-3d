@@ -5,6 +5,7 @@ import {
     PerspectiveCamera,
     PlaneGeometry,
     PMREMGenerator,
+    Raycaster,
     RepeatWrapping,
     Scene,
     TextureLoader,
@@ -18,11 +19,14 @@ import {Sky} from "three/examples/jsm/objects/Sky"
 
 const clock = new Clock()
 
+
 export class VoxelWorldManager {
     private readonly voxelWorld: VoxelWorld
-    private readonly scene: Scene
-    private readonly camera: PerspectiveCamera
+    readonly scene: Scene
+    readonly camera: PerspectiveCamera
     private readonly controls: OrbitControls
+    private readonly raycaster = new Raycaster()
+
     private effectController = {
         turbidity: 10,
         rayleigh: 3,
@@ -122,10 +126,6 @@ export class VoxelWorldManager {
         this.voxelWorld.generateUnits()
     }
 
-    moveUnit = () => {
-        this.voxelWorld.moveUnit()
-    }
-
     render(renderer: WebGLRenderer) {
         const delta = clock.getDelta()
         if (this.water) this.water.material.uniforms['time'].value += 0.1 / 60.0
@@ -138,5 +138,33 @@ export class VoxelWorldManager {
         this.voxelWorld.update(delta)
         this.controls.update()
         renderer.render(this.scene, this.camera)
+    }
+
+    raycast = (e: MouseEvent) => {
+        const {scene, camera, raycaster, voxelWorld} = this
+        // 1. sets the mouse position with a coordinate system where the center
+        //   of the screen is the origin
+        const mouse = {
+            x: (e.clientX / window.innerWidth) * 2 - 1,
+            y: -(e.clientY / window.innerHeight) * 2 + 1
+        }
+
+        // 2. set the picking ray from the camera position and mouse coordinates
+        raycaster.setFromCamera(mouse, camera)
+
+        // 3. compute intersections (no 2nd parameter true anymore)
+        const intersects = raycaster.intersectObjects(scene.children, true)
+        if (intersects.length > 0) {
+            /*
+                An intersection has the following properties :
+                    - object : intersected object (THREE.Mesh)
+                    - distance : distance from camera to intersection (number)
+                    - face : intersected face (THREE.Face3)
+                    - faceIndex : intersected face index (number)
+                    - point : intersection point (THREE.Vector3)
+                    - uv : intersection point in the object's UV coordinates (THREE.Vector2)
+            */
+            voxelWorld.handleClick(intersects[0])
+        }
     }
 }

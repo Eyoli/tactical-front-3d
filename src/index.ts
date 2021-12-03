@@ -1,5 +1,13 @@
-import * as THREE from 'three'
-import {ACESFilmicToneMapping, PMREMGenerator, WebGLRenderer} from 'three'
+import {
+    ACESFilmicToneMapping,
+    DoubleSide,
+    MeshStandardMaterial,
+    NearestFilter,
+    PerspectiveCamera,
+    PMREMGenerator,
+    TextureLoader,
+    WebGLRenderer
+} from 'three'
 import {TextureInfos, VoxelWorld} from './threejs/voxel-world'
 import {VoxelWorldManager} from "./threejs/voxel-world-manager"
 import {BasicWorldMapGenerator} from "./threejs/world-map-generator"
@@ -22,14 +30,14 @@ function main() {
     const cellSize = 15
 
     // Texture
-    const loader = new THREE.TextureLoader()
+    const loader = new TextureLoader()
     const texture = loader.load('https://threejsfundamentals.org/threejs/resources/images/minecraft/flourish-cc-by-nc-sa.png', render)
-    texture.magFilter = THREE.NearestFilter
-    texture.minFilter = THREE.NearestFilter
+    texture.magFilter = NearestFilter
+    texture.minFilter = NearestFilter
     const textureInfos: TextureInfos = {
-        material: new THREE.MeshStandardMaterial({
+        material: new MeshStandardMaterial({
             map: texture,
-            side: THREE.DoubleSide,
+            side: DoubleSide,
             alphaTest: 0.1,
             transparent: true,
         }),
@@ -43,7 +51,7 @@ function main() {
     const aspect = 2  // the canvas default
     const near = 1
     const far = 20000
-    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    const camera = new PerspectiveCamera(fov, aspect, near, far)
     camera.position.set(-cellSize * .3, cellSize * .8, -cellSize * .3)
 
     // Controls
@@ -59,6 +67,7 @@ function main() {
     )
     worldGenerator.generate(worldMap)
     const world = new World(worldMap)
+        .addUnit({id: 1}, {x: 1, z: 1})
     const voxelWorld = new VoxelWorld({
         world,
         textureInfos
@@ -71,7 +80,6 @@ function main() {
     // 0,0,0 will generate
     manager.generateChunk(0, 0, 0)
     // manager.generateVoxelGeometry(32, 0, 0)
-    manager.moveUnit()
 
     let renderRequested: boolean | undefined = false
 
@@ -80,6 +88,8 @@ function main() {
         renderRequested = undefined
         manager.render(renderer)
     }
+
+    renderer.domElement.addEventListener('click', manager.raycast, false)
 
     stats()
     render()

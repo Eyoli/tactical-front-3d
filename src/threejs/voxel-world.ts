@@ -1,74 +1,6 @@
-import {
-    AnimationAction,
-    AnimationClip,
-    AnimationMixer,
-    BoxGeometry,
-    BufferAttribute,
-    BufferGeometry,
-    Group,
-    Material,
-    Mesh,
-    MeshStandardMaterial,
-    Quaternion,
-    QuaternionKeyframeTrack,
-    Vector3,
-    VectorKeyframeTrack
-} from "three"
-import {Position3D, Unit, World} from "../model/world"
-import {LoopOnce} from "three/src/constants"
-
-class UnitMesh {
-    readonly mesh: Mesh
-    readonly idle: AnimationAction
-    move?: AnimationAction
-
-    constructor(mesh: Mesh, idleAnimationClip: AnimationClip) {
-        this.mesh = mesh
-        const mixer = new AnimationMixer(mesh)
-        this.idle = mixer.clipAction(idleAnimationClip)
-    }
-
-    computeMovingAnimation(path: Position3D[]) {
-        const object = this
-        const values: number[] = [], times: number[] = []
-        path.forEach(({x, y, z}, i) => {
-            if (i > 0 && y - path[i - 1].y > 0) {
-                values.push(path[i - 1].x + 0.5, y + 0.5, path[i - 1].z + 0.5)
-                times.push(values.length / 3)
-            } else if (i > 0 && y - path[i - 1].y < 0) {
-                values.push(x + 0.5, path[i - 1].y + 0.5, z + 0.5)
-                times.push(values.length / 3)
-            }
-            values.push(x + 0.5, y + 0.5, z + 0.5)
-            times.push(values.length / 3)
-        })
-        const vectorKF = new VectorKeyframeTrack('.position', times, values)
-        const moveAnimationClip = new AnimationClip('move', -1, [vectorKF])
-        const mixer = new AnimationMixer(object.mesh)
-
-        const to = values.slice(values.length - 3)
-        object.mesh.position.set(to[0], to[1], to[2])
-
-        object.move = mixer.clipAction(moveAnimationClip)
-        object.move.setLoop(LoopOnce, 0)
-        mixer.addEventListener('finished', () => {
-            object.move = undefined
-        })
-    }
-}
-
-const initUnit = (): UnitMesh => {
-    const mesh = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshStandardMaterial({roughness: 0}))
-
-    // animations
-    const xAxis = new Vector3(1, 0, 0)
-    const qInitial = new Quaternion().setFromAxisAngle(xAxis, 0)
-    const qFinal = new Quaternion().setFromAxisAngle(xAxis, Math.PI)
-    const quaternionKF = new QuaternionKeyframeTrack('.quaternion', [0, 1, 2], [qInitial.x, qInitial.y, qInitial.z, qInitial.w, qFinal.x, qFinal.y, qFinal.z, qFinal.w, qInitial.x, qInitial.y, qInitial.z, qInitial.w])
-    const idleAnimationClip = new AnimationClip('idle', -1, [quaternionKF])
-
-    return new UnitMesh(mesh, idleAnimationClip)
-}
+import {BufferAttribute, BufferGeometry, Group, Intersection, Material, Mesh} from "three"
+import {Position2D, Position3D, Unit, World} from "../model/world"
+import {initUnit, UnitMesh} from "./units"
 
 const FACES = [
     { // left
@@ -150,6 +82,7 @@ export class VoxelWorld {
     private readonly textureInfos: TextureInfos
     private readonly chunkIdToMesh = {}
     private readonly unitsToMesh: Map<Unit, UnitMesh> = new Map<Unit, UnitMesh>()
+    private selectedUnit?: UnitMesh
     readonly parent = new Group()
 
     private readonly neighborOffsets = [
@@ -307,22 +240,14 @@ export class VoxelWorld {
 
     generateUnits = () => {
         const {parent, world, unitsToMesh} = this
-        Array.from(world.unitsToPositions.entries()).forEach(({0: unit, 1: p}) => {
-            const unitMesh = initUnit()
-            unitMesh.idle.play()
-            unitMesh.mesh.position.set(p.x + 0.5, p.y + 0.3, p.z + 0.5)
-            parent.add(unitMesh.mesh)
-            unitsToMesh.set(unit, unitMesh)
-        })
-    }
-
-    moveUnit = () => {
-        const {world, unitsToMesh} = this
-        world.getUnits().forEach(unit => {
-            const path = world.moveUnit(unit, {x: 9, z: 9})
-            if (path) {
-                unitsToMesh.get(unit)?.computeMovingAnimation(path)
-                unitsToMesh.get(unit)?.move?.play()
+        world.units.forEach((unit) => {
+            const p = world.unitsToPositions.get(unit.id)
+            if (p) {
+                const unitMesh = initUnit(unit)
+                unitMesh.idle.play()
+                unitMesh.mesh.position.set(p.x + 0.5, p.y + 0.3, p.z + 0.5)
+                parent.add(unitMesh.mesh)
+                unitsToMesh.set(unit, unitMesh)
             }
         })
     }
@@ -390,6 +315,33 @@ export class VoxelWorld {
             unit.idle.getMixer().update(time)
             unit.move?.getMixer().update(time)
         })
+    }
+
+    getUnitMeshFromMesh = (mesh: Mesh) => Array.from(this.unitsToMesh.values()).find(unitMesh => unitMesh.mesh.uuid === mesh.uuid)
+
+    moveUnit = (unitMesh: UnitMesh, p: Position2D) => {
+        const {world} = this
+
+        const path = world.moveUnit(unitMesh.unit, p)
+        console.log(path)
+        if (path) {
+            unitMesh.computeMovingAnimation(path)
+            unitMesh.move?.play()
+        }
+    }
+
+    handleClick = (intersection: Intersection) => {
+        const {world, getUnitMeshFromMesh, moveUnit} = this
+        console.log(intersection)
+        if (intersection.object.type === "Mesh") {
+            const unitMesh = getUnitMeshFromMesh(intersection.object as Mesh)
+            if (unitMesh) {
+                this.selectedUnit = unitMesh
+            } else if (this.selectedUnit) {
+                const p = world.getClosestPosition({x: intersection.point.x, z: intersection.point.z})
+                moveUnit(this.selectedUnit, p)
+            }
+        }
     }
 }
 

@@ -12,7 +12,9 @@ export type Position2D = {
     z: number
 }
 
-export type Unit = {}
+export type Unit = {
+    id: number
+}
 
 export class WorldMap implements Graph<Position3D, number> {
     readonly chunkSize: number
@@ -115,36 +117,50 @@ export class WorldMap implements Graph<Position3D, number> {
 }
 
 export class World {
-    readonly unitsToPositions = new Map<Unit, Position3D>()
+    readonly unitsToPositions = new Map<number, Position3D>()
+    readonly units: Unit[] = []
     readonly worldMap: WorldMap
     private pathFinderManager: PathFinderManager<Position3D, number>
 
     constructor(worldMap: WorldMap) {
-        this.unitsToPositions.set({}, {x: 1, y: worldMap.getHeight(1, 1), z: 1})
         this.pathFinderManager = new PathFinderManager()
         this.worldMap = worldMap
     }
 
-    getUnits = () => {
-        return Array.from(this.unitsToPositions.keys())
+    addUnit = (unit: Unit, p: Position2D) => {
+        this.units.push(unit)
+        this.unitsToPositions.set(unit.id, {
+            x: p.x,
+            y: this.worldMap.getHeight(1, 1),
+            z: p.z
+        })
+        return this
     }
 
     moveUnit = (unit: Unit, {x, z}: Position2D) => {
-        const from = this.unitsToPositions.get(unit)
+        console.log(x, z)
+
+        const from = this.unitsToPositions.get(unit.id)
+        // No current position for the selected unit, we do nothing
+        if (!from) {
+            console.log("No starting point")
+            return null
+        }
+
         const to = {
             x: x,
             y: this.worldMap.getHeight(x, z),
             z: z
         }
-        if (from) {
-            const pathFinder = this.pathFinderManager.getShortestPath(this.worldMap, from, to)
-            const result = pathFinder.find()
-            if (result.path.length > 0) {
-                this.unitsToPositions.set(unit, to)
-            }
-        return result.path
+        const pathFinder = this.pathFinderManager.getShortestPath(this.worldMap, from, to)
+        const result = pathFinder.find()
+        if (result.path.length > 0) {
+            this.unitsToPositions.set(unit.id, to)
         }
+        return result.path
+    }
 
-        return null
+    getClosestPosition = ({x, z}: Position2D): Position2D => {
+        return {x: Math.floor(x), z: Math.floor(z)}
     }
 }
