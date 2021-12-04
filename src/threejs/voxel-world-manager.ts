@@ -71,7 +71,7 @@ export class VoxelWorldManager {
             {
                 textureWidth: 512,
                 textureHeight: 512,
-                waterNormals: new TextureLoader().load('waternormals.jpg', function (texture) {
+                waterNormals: new TextureLoader().load('images/waternormals.jpg', function (texture) {
                     texture.wrapS = texture.wrapT = RepeatWrapping
                 }),
                 sunDirection: new Vector3(),

@@ -19,12 +19,11 @@ export type Unit = {
 export class WorldMap implements Graph<Position3D, number> {
     readonly chunkSize: number
     private readonly chunkSliceSize: number
-    private readonly chunks: Uint8Array[]
+    private readonly chunks: Map<string,Uint8Array> = new Map()
 
     constructor(chunkSize: number) {
         this.chunkSize = chunkSize
         this.chunkSliceSize = chunkSize * chunkSize
-        this.chunks = []
     }
 
     getNeighbours = ({x, z}: Position3D): Position3D[] => {
@@ -109,10 +108,10 @@ export class WorldMap implements Graph<Position3D, number> {
         return cell
     }
 
-    private getChunk = (chunkId: string): Uint8Array => this.chunks[chunkId]
+    private getChunk = (chunkId: string): Uint8Array | undefined => this.chunks.get(chunkId)
 
     private setCellForVoxel = (chunkId: string, cell: Uint8Array) => {
-        this.chunks[chunkId] = cell
+        this.chunks.set(chunkId, cell)
     }
 }
 

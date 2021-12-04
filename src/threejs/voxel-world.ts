@@ -80,7 +80,7 @@ type VoxelWorldOptions = {
 export class VoxelWorld {
     private readonly world: World
     private readonly textureInfos: TextureInfos
-    private readonly chunkIdToMesh = {}
+    private readonly chunkIdToMesh: Map<string, Mesh> = new Map()
     private readonly unitsToMesh: Map<Unit, UnitMesh> = new Map<Unit, UnitMesh>()
     private selectedUnit?: UnitMesh
     readonly parent = new Group()
@@ -100,16 +100,16 @@ export class VoxelWorld {
         this.textureInfos = textureInfos
     }
 
-    getChunkMesh = (x: number, y: number, z: number): Mesh => {
+    getChunkMesh = (x: number, y: number, z: number): Mesh | undefined => {
         const cellId = this.world.worldMap.computeChunkId({x, y, z})
-        return this.chunkIdToMesh[cellId]
+        return this.chunkIdToMesh.get(cellId)
     }
 
     createCellMesh = (x: number, y: number, z: number): Mesh => {
         const cellId = this.world.worldMap.computeChunkId({x, y, z})
         const mesh = new Mesh<BufferGeometry, Material>(new BufferGeometry(), this.textureInfos.material)
         mesh.name = cellId
-        this.chunkIdToMesh[cellId] = mesh
+        this.chunkIdToMesh.set(cellId, mesh)
         return mesh
     }
 
@@ -199,14 +199,14 @@ export class VoxelWorld {
     }
 
     generateChunk(x: number, y: number, z: number) {
-        const updatedCellIds = {}
+        const updatedCellIds = new Map<string, boolean>()
         for (const offset of this.neighborOffsets) {
             const ox = x + offset[0]
             const oy = y + offset[1]
             const oz = z + offset[2]
             const cellId = this.world.worldMap.computeChunkId({x: ox, y: oy, z: oz})
-            if (!updatedCellIds[cellId]) {
-                updatedCellIds[cellId] = true
+            if (!updatedCellIds.get(cellId)) {
+                updatedCellIds.set(cellId, true)
                 let mesh = this.getChunkMesh(ox, oy, oz)
 
                 if (!mesh) {
@@ -224,18 +224,20 @@ export class VoxelWorld {
         const cellX = Math.floor(x / chunkSize)
         const cellY = Math.floor(y / chunkSize)
         const cellZ = Math.floor(z / chunkSize)
-        let mesh = this.getChunkMesh(x, y, z)
+        const mesh = this.getChunkMesh(x, y, z)
 
-        const geometry = mesh.geometry
-        const {positions, normals, uvs, indices} = this.generateGeometryDataForChunk(cellX, cellY, cellZ)
-        const positionNumComponents = 3
-        geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), positionNumComponents))
-        const normalNumComponents = 3
-        geometry.setAttribute('normal', new BufferAttribute(new Float32Array(normals), normalNumComponents))
-        const uvNumComponents = 2
-        geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), uvNumComponents))
-        geometry.setIndex(indices)
-        geometry.computeBoundingSphere()
+        if (mesh) {
+            const geometry = mesh.geometry
+            const {positions, normals, uvs, indices} = this.generateGeometryDataForChunk(cellX, cellY, cellZ)
+            const positionNumComponents = 3
+            geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), positionNumComponents))
+            const normalNumComponents = 3
+            geometry.setAttribute('normal', new BufferAttribute(new Float32Array(normals), normalNumComponents))
+            const uvNumComponents = 2
+            geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), uvNumComponents))
+            geometry.setIndex(indices)
+            geometry.computeBoundingSphere()
+        }
     }
 
     generateUnits = () => {
