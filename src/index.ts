@@ -31,7 +31,7 @@ function main() {
 
     // Texture
     const loader = new TextureLoader()
-    const texture = loader.load('https://threejsfundamentals.org/threejs/resources/images/minecraft/flourish-cc-by-nc-sa.png', render)
+    const texture = loader.load('images/flourish-cc-by-nc-sa.png', render)
     texture.magFilter = NearestFilter
     texture.minFilter = NearestFilter
     const textureInfos: TextureInfos = {
