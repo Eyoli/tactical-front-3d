@@ -9,7 +9,7 @@ export type Graph<N, K> = {
 }
 
 export type Path<N> = {
-    path: N[]
+    path: N[] | undefined
     cost: number
 }
 
@@ -132,7 +132,7 @@ class PathFinder<N, K> {
             return {path: shortestPath, cost: totalCost}
         }
 
-        return {path: [], cost: Infinity}
+        return {path: undefined, cost: Infinity}
     }
 }
 

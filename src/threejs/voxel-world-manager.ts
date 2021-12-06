@@ -164,7 +164,7 @@ export class VoxelWorldManager {
                     - point : intersection point (THREE.Vector3)
                     - uv : intersection point in the object's UV coordinates (THREE.Vector2)
             */
-            voxelWorld.handleClick(intersects[0])
+            voxelWorld.handleClick(intersects)
         }
     }
 }

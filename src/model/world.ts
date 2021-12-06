@@ -137,8 +137,6 @@ export class World {
     }
 
     moveUnit = (unit: Unit, {x, z}: Position2D) => {
-        console.log(x, z)
-
         const from = this.unitsToPositions.get(unit.id)
         // No current position for the selected unit, we do nothing
         if (!from) {
@@ -153,7 +151,7 @@ export class World {
         }
         const pathFinder = this.pathFinderManager.getShortestPath(this.worldMap, from, to)
         const result = pathFinder.find()
-        if (result.path.length > 0) {
+        if (result.path) {
             this.unitsToPositions.set(unit.id, to)
         }
         return result.path

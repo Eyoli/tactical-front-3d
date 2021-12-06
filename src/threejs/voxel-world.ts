@@ -84,6 +84,7 @@ export class VoxelWorld {
     private readonly unitsToMesh: Map<Unit, UnitMesh> = new Map<Unit, UnitMesh>()
     private selectedUnit?: UnitMesh
     readonly parent = new Group()
+    readonly unitLayer = new Group()
 
     private readonly neighborOffsets = [
         [0, 0, 0], // self
@@ -98,6 +99,8 @@ export class VoxelWorld {
     constructor({world, textureInfos}: VoxelWorldOptions) {
         this.world = world
         this.textureInfos = textureInfos
+        this.unitLayer.position.set(0.5, 0, 0.5)
+        this.parent.add(this.unitLayer)
     }
 
     getChunkMesh = (x: number, y: number, z: number): Mesh | undefined => {
@@ -241,14 +244,13 @@ export class VoxelWorld {
     }
 
     generateUnits = () => {
-        const {parent, world, unitsToMesh} = this
+        const {unitLayer, world, unitsToMesh} = this
         world.units.forEach((unit) => {
             const p = world.unitsToPositions.get(unit.id)
             if (p) {
-                const unitMesh = initUnit(unit)
+                const unitMesh = initUnit(unit, p)
                 unitMesh.idle.play()
-                unitMesh.mesh.position.set(p.x + 0.5, p.y + 0.3, p.z + 0.5)
-                parent.add(unitMesh.mesh)
+                unitLayer.add(unitMesh.mesh)
                 unitsToMesh.set(unit, unitMesh)
             }
         })
@@ -319,30 +321,28 @@ export class VoxelWorld {
         })
     }
 
-    getUnitMeshFromMesh = (mesh: Mesh) => Array.from(this.unitsToMesh.values()).find(unitMesh => unitMesh.mesh.uuid === mesh.uuid)
+    getUnitMesh = (uuid: string): UnitMesh | undefined => Array.from(this.unitsToMesh.values()).find((unitMesh) => unitMesh.childrenIds.indexOf(uuid) > 0)
 
     moveUnit = (unitMesh: UnitMesh, p: Position2D) => {
         const {world} = this
 
         const path = world.moveUnit(unitMesh.unit, p)
-        console.log(path)
         if (path) {
-            unitMesh.computeMovingAnimation(path)
+            console.log('Moving unit', p)
+            unitMesh.computeMovingAnimation(path, 2)
             unitMesh.move?.play()
         }
     }
 
-    handleClick = (intersection: Intersection) => {
-        const {world, getUnitMeshFromMesh, moveUnit} = this
-        console.log(intersection)
-        if (intersection.object.type === "Mesh") {
-            const unitMesh = getUnitMeshFromMesh(intersection.object as Mesh)
-            if (unitMesh) {
-                this.selectedUnit = unitMesh
-            } else if (this.selectedUnit) {
-                const p = world.getClosestPosition({x: intersection.point.x, z: intersection.point.z})
-                moveUnit(this.selectedUnit, p)
-            }
+    handleClick = (intersects: Intersection[]) => {
+        const {world, getUnitMesh, moveUnit} = this
+        const unitMesh = intersects.map(i => getUnitMesh(i.object.uuid)).find(i => i != undefined)
+        if (unitMesh) {
+            console.log('Selecting unit', unitMesh)
+            this.selectedUnit = unitMesh
+        } else if (intersects.length > 0 && this.selectedUnit?.isMoving) {
+            const p = world.getClosestPosition({x: intersects[0].point.x, z: intersects[0].point.z})
+            moveUnit(this.selectedUnit, p)
         }
     }
 }

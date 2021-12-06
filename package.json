@@ -16,7 +16,7 @@
     "author": "Grant Bartlett",
     "license": "MIT",
     "dependencies": {
-        "three": "^0.135.0"
+        "three": "^0.134.0"
     },
     "devDependencies": {
         "@types/jest": "^27.0.3",

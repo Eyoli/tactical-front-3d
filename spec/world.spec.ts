@@ -21,7 +21,7 @@ describe('world', () => {
         const pathFinder = pathFinderManager.getShortestPath(worldMap, {x: 0, y: 1, z: 0}, {x: 5, y: 1, z: 5})
         const result = pathFinder.find()
 
-        expect(result.path.length).toBe(11)
+        expect(result.path?.length).toBe(11)
     })
 
     it('should select a unit and move it', () => {
