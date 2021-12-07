@@ -61,7 +61,7 @@ export class UnitMesh {
         return !this.move
     }
 
-    computeChildrenIds = (mesh: Object3D) => {
+    private computeChildrenIds = (mesh: Object3D) => {
         let listToExplore: Object3D[] = []
         let listToFill: string[] = []
         let element: Object3D | undefined = mesh
@@ -76,10 +76,10 @@ export class UnitMesh {
 
 export const initUnit = (unit: Unit, p: Position3D): UnitMesh => {
     const mesh = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshStandardMaterial({roughness: 0}))
-    const group = new Mesh()
-    group.position.set(p.x, p.y, p.z)
+    const parent = new Mesh()
+    parent.position.set(p.x, p.y, p.z)
     mesh.position.set(0, 0.5, 0)
-    group.add(mesh)
+    parent.add(mesh)
 
     // animations
     const xAxis = new Vector3(1, 0, 0)
@@ -88,5 +88,5 @@ export const initUnit = (unit: Unit, p: Position3D): UnitMesh => {
     const quaternionKF = new QuaternionKeyframeTrack('.children[0].quaternion', [0, 1, 2], [qInitial.x, qInitial.y, qInitial.z, qInitial.w, qFinal.x, qFinal.y, qFinal.z, qFinal.w, qInitial.x, qInitial.y, qInitial.z, qInitial.w])
     const idleAnimationClip = new AnimationClip('idle', -1, [quaternionKF])
 
-    return new UnitMesh(unit, group, idleAnimationClip)
+    return new UnitMesh(unit, parent, idleAnimationClip)
 }

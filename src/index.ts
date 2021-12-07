@@ -1,19 +1,11 @@
-import {
-    ACESFilmicToneMapping,
-    DoubleSide,
-    MeshStandardMaterial,
-    NearestFilter,
-    PerspectiveCamera,
-    PMREMGenerator,
-    TextureLoader,
-    WebGLRenderer
-} from 'three'
-import {TextureInfos, VoxelWorld} from './threejs/voxel-world'
+import {ACESFilmicToneMapping, PerspectiveCamera, PMREMGenerator, WebGLRenderer} from 'three'
+import {VoxelWorld} from './threejs/voxel-world'
 import {VoxelWorldManager} from "./threejs/voxel-world-manager"
 import {BasicWorldMapGenerator} from "./threejs/world-map-generator"
 import {stats} from "./monitoring/stats"
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
 import {World, WorldMap} from "./model/world"
+import {loadMinimalTexture} from "./threejs/textures"
 
 function main() {
     const renderer = new WebGLRenderer()
@@ -30,21 +22,7 @@ function main() {
     const cellSize = 15
 
     // Texture
-    const loader = new TextureLoader()
-    const texture = loader.load('images/flourish-cc-by-nc-sa.png', render)
-    texture.magFilter = NearestFilter
-    texture.minFilter = NearestFilter
-    const textureInfos: TextureInfos = {
-        material: new MeshStandardMaterial({
-            map: texture,
-            side: DoubleSide,
-            alphaTest: 0.1,
-            transparent: true,
-        }),
-        tileSize: 16,
-        tileTextureWidth: 256,
-        tileTextureHeight: 64
-    }
+    const textureInfos = loadMinimalTexture(render)
 
     // Camera
     const fov = 75
@@ -89,7 +67,7 @@ function main() {
         manager.render(renderer)
     }
 
-    renderer.domElement.addEventListener('click', manager.raycast, false)
+    renderer.domElement.addEventListener('mousedown', manager.raycast, false)
 
     stats()
     render()

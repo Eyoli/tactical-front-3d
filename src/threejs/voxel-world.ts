@@ -1,76 +1,7 @@
-import {BufferAttribute, BufferGeometry, Group, Intersection, Material, Mesh} from "three"
+import {BufferAttribute, BufferGeometry, Group, Intersection, Material, Mesh, SpotLight} from "three"
 import {Position2D, Position3D, Unit, World} from "../model/world"
 import {initUnit, UnitMesh} from "./units"
-
-const FACES = [
-    { // left
-        uvRow: 0,
-        dir: [-1, 0, 0],
-        corners: [
-            {pos: [0, 1, 0], uv: [0, 1]},
-            {pos: [0, 0, 0], uv: [0, 0]},
-            {pos: [0, 1, 1], uv: [1, 1]},
-            {pos: [0, 0, 1], uv: [1, 0]},
-        ],
-    },
-    { // right
-        uvRow: 0,
-        dir: [1, 0, 0],
-        corners: [
-            {pos: [1, 1, 1], uv: [0, 1]},
-            {pos: [1, 0, 1], uv: [0, 0]},
-            {pos: [1, 1, 0], uv: [1, 1]},
-            {pos: [1, 0, 0], uv: [1, 0]},
-        ],
-    },
-    { // bottom
-        uvRow: 1,
-        dir: [0, -1, 0],
-        corners: [
-            {pos: [1, 0, 1], uv: [1, 0]},
-            {pos: [0, 0, 1], uv: [0, 0]},
-            {pos: [1, 0, 0], uv: [1, 1]},
-            {pos: [0, 0, 0], uv: [0, 1]},
-        ],
-    },
-    { // top
-        uvRow: 2,
-        dir: [0, 1, 0],
-        corners: [
-            {pos: [0, 1, 1], uv: [1, 1]},
-            {pos: [1, 1, 1], uv: [0, 1]},
-            {pos: [0, 1, 0], uv: [1, 0]},
-            {pos: [1, 1, 0], uv: [0, 0]},
-        ],
-    },
-    { // back
-        uvRow: 0,
-        dir: [0, 0, -1],
-        corners: [
-            {pos: [1, 0, 0], uv: [0, 0]},
-            {pos: [0, 0, 0], uv: [1, 0]},
-            {pos: [1, 1, 0], uv: [0, 1]},
-            {pos: [0, 1, 0], uv: [1, 1]},
-        ],
-    },
-    { // front
-        uvRow: 0,
-        dir: [0, 0, 1],
-        corners: [
-            {pos: [0, 0, 1], uv: [0, 0]},
-            {pos: [1, 0, 1], uv: [1, 0]},
-            {pos: [0, 1, 1], uv: [0, 1]},
-            {pos: [1, 1, 1], uv: [1, 1]},
-        ],
-    },
-]
-
-export type TextureInfos = {
-    material: Material
-    tileSize: number
-    tileTextureHeight: number
-    tileTextureWidth: number
-}
+import {TextureInfos} from "./textures"
 
 type VoxelWorldOptions = {
     world: World,
@@ -83,8 +14,9 @@ export class VoxelWorld {
     private readonly chunkIdToMesh: Map<string, Mesh> = new Map()
     private readonly unitsToMesh: Map<Unit, UnitMesh> = new Map<Unit, UnitMesh>()
     private selectedUnit?: UnitMesh
-    readonly parent = new Group()
-    readonly unitLayer = new Group()
+    private readonly selectionLight: SpotLight
+    readonly parent: Group
+    private readonly unitLayer: Group
 
     private readonly neighborOffsets = [
         [0, 0, 0], // self
@@ -99,8 +31,22 @@ export class VoxelWorld {
     constructor({world, textureInfos}: VoxelWorldOptions) {
         this.world = world
         this.textureInfos = textureInfos
+
+        this.parent = new Group()
+
+        this.unitLayer = new Group()
         this.unitLayer.position.set(0.5, 0, 0.5)
         this.parent.add(this.unitLayer)
+
+        this.selectionLight = this.initSelectionLight()
+        this.parent.add(this.selectionLight)
+    }
+
+    private initSelectionLight = () => {
+        const light = new SpotLight(0x0000FF, 1, 0, 0.025, 1, 0.0001)
+        light.position.set(0, 30, 0)
+        light.visible = false
+        return light
     }
 
     getChunkMesh = (x: number, y: number, z: number): Mesh | undefined => {
@@ -278,7 +224,7 @@ export class VoxelWorld {
                         // voxel 0 is sky (empty) so for UVs we start at 0
                         const uvVoxel = voxel - 1
                         // There is a voxel here but do we need faces for it?
-                        for (const {dir, corners, uvRow} of FACES) {
+                        for (const {dir, corners, uvRow} of this.textureInfos.faces) {
                             const neighbor = this.world.worldMap.getVoxel(
                                 {
                                     x: voxelX + dir[0],
@@ -335,11 +281,13 @@ export class VoxelWorld {
     }
 
     handleClick = (intersects: Intersection[]) => {
-        const {world, getUnitMesh, moveUnit} = this
+        const {world, selectionLight, getUnitMesh, moveUnit} = this
         const unitMesh = intersects.map(i => getUnitMesh(i.object.uuid)).find(i => i != undefined)
         if (unitMesh) {
             console.log('Selecting unit', unitMesh)
             this.selectedUnit = unitMesh
+            selectionLight.visible = true
+            selectionLight.target = this.selectedUnit?.mesh
         } else if (intersects.length > 0 && this.selectedUnit?.isMoving) {
             const p = world.getClosestPosition({x: intersects[0].point.x, z: intersects[0].point.z})
             moveUnit(this.selectedUnit, p)

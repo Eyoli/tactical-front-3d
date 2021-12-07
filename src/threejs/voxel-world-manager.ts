@@ -1,6 +1,5 @@
 import {
     Clock,
-    DirectionalLight,
     MathUtils,
     PerspectiveCamera,
     PlaneGeometry,
@@ -32,7 +31,7 @@ export class VoxelWorldManager {
         rayleigh: 3,
         mieCoefficient: 0.005,
         mieDirectionalG: 0.7,
-        elevation: 15,
+        elevation: 1,
         azimuth: 180,
         exposure: 0.5
     }
@@ -53,14 +52,6 @@ export class VoxelWorldManager {
         this.scene = scene
         this.camera = camera
         this.controls = controls
-    }
-
-    addLight(x: number, y: number, z: number) {
-        const color = 0xFFFFFF
-        const intensity = 1
-        const light = new DirectionalLight(color, intensity)
-        light.position.set(x, y, z)
-        this.scene.add(light)
     }
 
     addWater() {
@@ -141,6 +132,11 @@ export class VoxelWorldManager {
     }
 
     raycast = (e: MouseEvent) => {
+
+        if (e.button !== 0) {
+            return
+        }
+
         const {scene, camera, raycaster, voxelWorld} = this
         // 1. sets the mouse position with a coordinate system where the center
         //   of the screen is the origin
