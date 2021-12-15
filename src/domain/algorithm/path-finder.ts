@@ -25,10 +25,10 @@ class NodeState<N> {
     }
 }
 
-type PositionMapping<P, N> = (p: P) => N
-type EdgeFilter<N> = (n1: N, n2: N) => boolean
+export type PositionMapping<P, N> = (p: P) => N
+export type EdgeFilter<N> = (n1: N, n2: N) => boolean
 
-class PathFinder<N, K> {
+export class PathFinder<N, K> {
     readonly graph: Graph<N, K>
     readonly startNode: N
     readonly endNode: N
@@ -133,18 +133,5 @@ class PathFinder<N, K> {
         }
 
         return {path: undefined, cost: Infinity}
-    }
-}
-
-export class PathFinderManager<N, K> {
-
-    getShortestPathFromPosition<P>(graph: Graph<N, K>, getClosestNode: PositionMapping<P, N>, start: P, end: P): PathFinder<N, K> {
-        const startNode = getClosestNode(start)
-        const endNode = getClosestNode(end)
-        return new PathFinder(graph, startNode, endNode)
-    }
-
-    getShortestPath(graph: Graph<N, K>, startNode: N, endNode: N): PathFinder<N, K> {
-        return new PathFinder(graph, startNode, endNode)
     }
 }

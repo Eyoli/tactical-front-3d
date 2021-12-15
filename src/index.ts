@@ -4,7 +4,7 @@ import {VoxelWorldManager} from "./threejs/voxel-world-manager"
 import {BasicWorldMapGenerator} from "./threejs/world-map-generator"
 import {stats} from "./monitoring/stats"
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
-import {World, WorldMap} from "./model/world"
+import {World, WorldMap} from "./domain/model/world"
 import {loadMinimalTexture} from "./threejs/textures"
 
 function main() {
@@ -45,7 +45,7 @@ function main() {
     )
     worldGenerator.generate(worldMap)
     const world = new World(worldMap)
-        .addUnit({id: 1}, {x: 1, z: 1})
+        .addUnit({id: 1, moves: 1, jump: 1}, {x: 1, z: 1})
     const voxelWorld = new VoxelWorld({
         world,
         textureInfos

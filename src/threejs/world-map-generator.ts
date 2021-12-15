@@ -1,5 +1,5 @@
-import {generateTerrain} from "../algorithm/diamond-square"
-import {WorldMap} from "../model/world"
+import {generateTerrain} from "../domain/algorithm/diamond-square"
+import {WorldMap} from "../domain/model/world"
 
 const randInt = (min: number, max: number) => {
     return Math.floor(Math.random() * (max - min) + min)

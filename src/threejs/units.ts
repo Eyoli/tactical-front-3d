@@ -11,7 +11,7 @@ import {
     Vector3,
     VectorKeyframeTrack
 } from "three"
-import {Position3D, Unit} from "../model/world"
+import {Position3D, Unit} from "../domain/model/world"
 import {LoopOnce} from "three/src/constants"
 
 export class UnitMesh {

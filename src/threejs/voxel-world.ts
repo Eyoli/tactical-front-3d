@@ -1,5 +1,5 @@
 import {BufferAttribute, BufferGeometry, Group, Intersection, Material, Mesh, SpotLight} from "three"
-import {Position2D, Position3D, Unit, World} from "../model/world"
+import {Position2D, Position3D, Unit, World} from "../domain/model/world"
 import {initUnit, UnitMesh} from "./units"
 import {TextureInfos} from "./textures"
 

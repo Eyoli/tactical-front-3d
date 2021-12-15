@@ -1,5 +1,6 @@
 import {euclideanModulo} from "three/src/math/MathUtils"
-import {Graph, PathFinderManager} from "../algorithm/path-finder"
+import {Graph} from "../algorithm/path-finder"
+import {WorldMapService} from "../service/services"
 
 export type Position3D = {
     x: number
@@ -15,12 +16,13 @@ export type Position2D = {
 export type Unit = {
     id: number
     moves: number
+    jump: number
 }
 
 export class WorldMap implements Graph<Position3D, number> {
     readonly chunkSize: number
     private readonly chunkSliceSize: number
-    private readonly chunks: Map<string,Uint8Array> = new Map()
+    private readonly chunks: Map<string, Uint8Array> = new Map()
 
     constructor(chunkSize: number) {
         this.chunkSize = chunkSize
@@ -37,7 +39,7 @@ export class WorldMap implements Graph<Position3D, number> {
         ].filter(p => getVoxel({x: p.x, y: p.y - 1, z: p.z}) !== 0)
     }
 
-    costBetween = (): number => {
+    costBetween = (p1: Position3D, p2: Position3D): number => {
         return 1
     }
 
@@ -77,17 +79,20 @@ export class WorldMap implements Graph<Position3D, number> {
     }
 
     getHeight = (x: number, z: number) => {
-        let bottom = {x, y: 0, z}
-        const chunk = this.getChunk(this.computeChunkId(bottom))
+        const chunk = this.getChunk(this.computeChunkId({x, y: 0, z}))
         if (!chunk) {
             return 0
         }
-        let voxel = chunk[this.getNodeKey(bottom)]
-        while (voxel > 0 && bottom.y < this.chunkSize) {
-            bottom.y++
-            voxel = chunk[this.getNodeKey(bottom)]
+        let y = 0
+        let height = 0
+        while (y < this.chunkSize) {
+            const voxel = chunk[this.getNodeKey({x, y, z})]
+            if (voxel > 0) {
+                height = y
+            }
+            y++
         }
-        return bottom.y
+        return height + 1
     }
 
     computeChunkId = ({x, y, z}: Position3D) => {
@@ -120,10 +125,10 @@ export class World {
     readonly unitsToPositions = new Map<number, Position3D>()
     readonly units: Unit[] = []
     readonly worldMap: WorldMap
-    private pathFinderManager: PathFinderManager<Position3D, number>
+    private worldMapService: WorldMapService<Position3D, number>
 
     constructor(worldMap: WorldMap) {
-        this.pathFinderManager = new PathFinderManager()
+        this.worldMapService = new WorldMapService()
         this.worldMap = worldMap
     }
 
@@ -150,7 +155,7 @@ export class World {
             y: this.worldMap.getHeight(x, z),
             z: z
         }
-        const pathFinder = this.pathFinderManager.getShortestPath(this.worldMap, from, to)
+        const pathFinder = this.worldMapService.getShortestPath(this.worldMap, from, to)
         const result = pathFinder.find()
         if (result.path) {
             this.unitsToPositions.set(unit.id, to)
@@ -163,6 +168,15 @@ export class World {
     }
 
     getAccessiblePositions(unit: Unit): Position3D[] {
-        return []
+        let p = this.unitsToPositions.get(unit.id)
+
+        // If we can't find unit position, we stop here
+        if (!p) return []
+
+        return this.worldMapService.getAccessibleNodes(
+            this.worldMap,
+            p,
+            unit.moves,
+            (p1, p2) => Math.abs(p2.y - p1.y) <= unit.jump)
     }
 }
