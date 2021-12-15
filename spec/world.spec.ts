@@ -1,4 +1,4 @@
-import {World, WorldMap} from "../src/model/world"
+import {Unit, World, WorldMap} from "../src/model/world"
 import {PathFinderManager} from "../src/algorithm/path-finder"
 
 const pathFinderManager = new PathFinderManager()
@@ -12,6 +12,8 @@ const initWorldMap = () => {
     }
     return worldMap
 }
+
+const aUnit = (): Unit => ({id: 1, moves: 1})
 
 describe('world', () => {
 
@@ -27,8 +29,19 @@ describe('world', () => {
     it('should select a unit and move it', () => {
         const worldMap = initWorldMap()
         const world = new World(worldMap)
+        world.addUnit(aUnit(), {x: 1, z: 1})
 
         world.moveUnit(world.units[0], {x: 5, z: 5})
+
+        expect(world.unitsToPositions.get(world.units[0].id)).toEqual({x: 5, y: 1, z: 5})
+    })
+
+    it('should get positions accessible to a unit', () => {
+        const worldMap = initWorldMap()
+        const world = new World(worldMap)
+        world.addUnit(aUnit(), {x: 1, z: 1})
+
+        world.getAccessiblePositions(world.units[0])
 
         expect(world.unitsToPositions.get(world.units[0].id)).toEqual({x: 5, y: 1, z: 5})
     })

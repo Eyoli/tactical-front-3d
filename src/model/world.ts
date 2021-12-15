@@ -14,6 +14,7 @@ export type Position2D = {
 
 export type Unit = {
     id: number
+    moves: number
 }
 
 export class WorldMap implements Graph<Position3D, number> {
@@ -159,5 +160,9 @@ export class World {
 
     getClosestPosition = ({x, z}: Position2D): Position2D => {
         return {x: Math.floor(x), z: Math.floor(z)}
+    }
+
+    getAccessiblePositions(unit: Unit): Position3D[] {
+        return []
     }
 }
