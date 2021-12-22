@@ -19,21 +19,27 @@ export class WorldMapService<N, K> {
         return new PathFinder(graph, startNode, endNode)
     }
 
-    getShortestPath(graph: Graph<N, K>, startNode: N, endNode: N): PathFinder<N, K> {
-        return new PathFinder(graph, startNode, endNode)
+    getShortestPath(graph: Graph<N, K>, startNode: N, endNode: N, filter?: EdgeFilter<N>): PathFinder<N, K> {
+        return new PathFinder(graph, startNode, endNode, filter)
     }
 
     getAccessibleNodes(graph: Graph<N, K>, start: N, maxCost: number, filter?: EdgeFilter<N>): N[] {
         const accessiblePositions: N[] = []
         const candidates = getCandidates(graph, start, 0, filter)
+        let n = 0
         while (candidates.length > 0) {
             const candidate = candidates.shift()!
-            if (candidate.cost <= maxCost) {
+            const nodeKey = graph.getNodeKey(candidate.node)
+            const wasAlreadyAdded = accessiblePositions.find(node => nodeKey === graph.getNodeKey(node))
+            if (candidate.cost <= maxCost && !wasAlreadyAdded) {
                 accessiblePositions.push(candidate.node)
                 const newCandidates = getCandidates(graph, candidate.node, candidate.cost, filter)
                 candidates.push(...newCandidates)
             }
+            n++
         }
+
+        console.log("iterations: ", n)
 
         return accessiblePositions
     }

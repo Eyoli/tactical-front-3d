@@ -1,5 +1,5 @@
 import {euclideanModulo} from "three/src/math/MathUtils"
-import {Graph} from "../algorithm/path-finder"
+import {EdgeFilter, Graph} from "../algorithm/path-finder"
 import {WorldMapService} from "../service/services"
 
 export type Position3D = {
@@ -18,6 +18,8 @@ export type Unit = {
     moves: number
     jump: number
 }
+
+const edgeFilter = (unit: Unit): EdgeFilter<Position3D> => (p1, p2) => Math.abs(p2.y - p1.y) <= unit.jump
 
 export class WorldMap implements Graph<Position3D, number> {
     readonly chunkSize: number
@@ -155,7 +157,7 @@ export class World {
             y: this.worldMap.getHeight(x, z),
             z: z
         }
-        const pathFinder = this.worldMapService.getShortestPath(this.worldMap, from, to)
+        const pathFinder = this.worldMapService.getShortestPath(this.worldMap, from, to, edgeFilter(unit))
         const result = pathFinder.find()
         if (result.path) {
             this.unitsToPositions.set(unit.id, to)
@@ -177,6 +179,6 @@ export class World {
             this.worldMap,
             p,
             unit.moves,
-            (p1, p2) => Math.abs(p2.y - p1.y) <= unit.jump)
+            edgeFilter(unit))
     }
 }

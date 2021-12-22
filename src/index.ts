@@ -45,7 +45,7 @@ function main() {
     )
     worldGenerator.generate(worldMap)
     const world = new World(worldMap)
-        .addUnit({id: 1, moves: 1, jump: 1}, {x: 1, z: 1})
+        .addUnit({id: 1, moves: 5, jump: 1}, {x: 1, z: 1})
     const voxelWorld = new VoxelWorld({
         world,
         textureInfos

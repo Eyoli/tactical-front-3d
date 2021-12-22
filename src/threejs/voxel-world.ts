@@ -1,6 +1,16 @@
-import {BufferAttribute, BufferGeometry, Group, Intersection, Material, Mesh, SpotLight} from "three"
+import {
+    BoxGeometry,
+    BufferAttribute,
+    BufferGeometry,
+    Group,
+    Intersection,
+    Material,
+    Mesh,
+    MeshStandardMaterial,
+    SpotLight
+} from "three"
 import {Position2D, Position3D, Unit, World} from "../domain/model/world"
-import {initUnit, UnitMesh} from "./units"
+import {initUnit, UnitView} from "./units"
 import {TextureInfos} from "./textures"
 
 type VoxelWorldOptions = {
@@ -12,11 +22,12 @@ export class VoxelWorld {
     private readonly world: World
     private readonly textureInfos: TextureInfos
     private readonly chunkIdToMesh: Map<string, Mesh> = new Map()
-    private readonly unitsToMesh: Map<Unit, UnitMesh> = new Map<Unit, UnitMesh>()
-    private selectedUnit?: UnitMesh
+    private readonly unitsToMesh: Map<Unit, UnitView> = new Map<Unit, UnitView>()
+    private selectedUnit?: UnitView
     private readonly selectionLight: SpotLight
     readonly parent: Group
     private readonly unitLayer: Group
+    private readonly rangeLayer: Group
 
     private readonly neighborOffsets = [
         [0, 0, 0], // self
@@ -37,6 +48,10 @@ export class VoxelWorld {
         this.unitLayer = new Group()
         this.unitLayer.position.set(0.5, 0, 0.5)
         this.parent.add(this.unitLayer)
+
+        this.rangeLayer = new Group()
+        this.rangeLayer.position.set(0.5, 1, 0.5)
+        this.parent.add(this.rangeLayer)
 
         this.selectionLight = this.initSelectionLight()
         this.parent.add(this.selectionLight)
@@ -267,30 +282,62 @@ export class VoxelWorld {
         })
     }
 
-    getUnitMesh = (uuid: string): UnitMesh | undefined => Array.from(this.unitsToMesh.values()).find((unitMesh) => unitMesh.childrenIds.indexOf(uuid) > 0)
+    getUnitMesh = (uuid: string): UnitView | undefined => Array.from(this.unitsToMesh.values()).find((unitMesh) => unitMesh.childrenIds.indexOf(uuid) > 0)
 
-    moveUnit = (unitMesh: UnitMesh, p: Position2D) => {
-        const {world} = this
+    handleUnitMove = (unitMesh: UnitView, p: Position2D) => {
+        const {world, rangeLayer} = this
 
-        const path = world.moveUnit(unitMesh.unit, p)
-        if (path) {
-            console.log('Moving unit', p)
-            unitMesh.computeMovingAnimation(path, 2)
-            unitMesh.move?.play()
+        // Verify that the position can be accessed
+        const accessiblePositions = world.getAccessiblePositions(unitMesh.unit)
+        if (!accessiblePositions.find(accessiblePosition => accessiblePosition.x === p.x && accessiblePosition.z === p.z)) {
+            console.log(`Impossible to move unit (id=${unitMesh.unit.id}) to`, p, 'position is not accessible')
+            return
         }
+
+        // Verify that a path exists between the locations
+        const path = world.moveUnit(unitMesh.unit, p)
+        if (!path) {
+            console.log(`Impossible to move unit (id=${unitMesh.unit.id}) to`, p, 'no path found')
+            return
+        }
+
+        rangeLayer.remove(...rangeLayer.children)
+
+        console.log(`Moving unit (id=${unitMesh.unit.id}) to`, p)
+        unitMesh.computeMovingAnimation(path, 2)
+        unitMesh.move?.play()
+    }
+
+    private createRangeMesh = (p: Position3D): Mesh => {
+        const mesh = new Mesh(new BoxGeometry(1, 0.1, 1), new MeshStandardMaterial({
+            roughness: 0,
+            color: "#ff0000"
+        }))
+        mesh.position.set(p.x, p.y - 1, p.z)
+        return mesh
+    }
+
+    private handleUnitSelection = (unitView: UnitView) => {
+        const {world, rangeLayer, selectionLight, createRangeMesh} = this
+
+        console.log('Selecting unit', unitView)
+
+        this.selectedUnit = unitView
+        selectionLight.visible = true
+        selectionLight.target = unitView?.mesh
+
+        rangeLayer.remove(...rangeLayer.children)
+        world.getAccessiblePositions(unitView.unit).map(p => createRangeMesh(p)).forEach(mesh => rangeLayer.add(mesh))
     }
 
     handleClick = (intersects: Intersection[]) => {
-        const {world, selectionLight, getUnitMesh, moveUnit} = this
-        const unitMesh = intersects.map(i => getUnitMesh(i.object.uuid)).find(i => i != undefined)
-        if (unitMesh) {
-            console.log('Selecting unit', unitMesh)
-            this.selectedUnit = unitMesh
-            selectionLight.visible = true
-            selectionLight.target = this.selectedUnit?.mesh
+        const {world, handleUnitSelection, getUnitMesh, handleUnitMove} = this
+        const unitView = intersects.map(i => getUnitMesh(i.object.uuid)).find(i => i != undefined)
+        if (unitView) {
+            handleUnitSelection(unitView)
         } else if (intersects.length > 0 && this.selectedUnit?.isMoving) {
             const p = world.getClosestPosition({x: intersects[0].point.x, z: intersects[0].point.z})
-            moveUnit(this.selectedUnit, p)
+            handleUnitMove(this.selectedUnit, p)
         }
     }
 }

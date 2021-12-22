@@ -14,7 +14,7 @@ import {
 import {Position3D, Unit} from "../domain/model/world"
 import {LoopOnce} from "three/src/constants"
 
-export class UnitMesh {
+export class UnitView {
     readonly mesh: Object3D
     readonly unit: Unit
     readonly idle: AnimationAction
@@ -74,7 +74,7 @@ export class UnitMesh {
     }
 }
 
-export const initUnit = (unit: Unit, p: Position3D): UnitMesh => {
+export const initUnit = (unit: Unit, p: Position3D): UnitView => {
     const mesh = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshStandardMaterial({roughness: 0}))
     const parent = new Mesh()
     parent.position.set(p.x, p.y, p.z)
@@ -88,5 +88,5 @@ export const initUnit = (unit: Unit, p: Position3D): UnitMesh => {
     const quaternionKF = new QuaternionKeyframeTrack('.children[0].quaternion', [0, 1, 2], [qInitial.x, qInitial.y, qInitial.z, qInitial.w, qFinal.x, qFinal.y, qFinal.z, qFinal.w, qInitial.x, qInitial.y, qInitial.z, qInitial.w])
     const idleAnimationClip = new AnimationClip('idle', -1, [quaternionKF])
 
-    return new UnitMesh(unit, parent, idleAnimationClip)
+    return new UnitView(unit, parent, idleAnimationClip)
 }

@@ -35,16 +35,12 @@ export class PathFinder<N, K> {
     private readonly nodesState: Map<K, NodeState<N>>
     private neighbourFilter?: EdgeFilter<N>
 
-    constructor(graph: Graph<N, K>, startNode: N, endNode: N) {
+    constructor(graph: Graph<N, K>, startNode: N, endNode: N, filter?: EdgeFilter<N>) {
         this.graph = graph
         this.startNode = startNode
         this.endNode = endNode
         this.nodesState = new Map()
-    }
-
-    withNeighbourFilter(filter: EdgeFilter<N>): PathFinder<N, K> {
         this.neighbourFilter = filter
-        return this
     }
 
     private getNodeState(node: N) {
