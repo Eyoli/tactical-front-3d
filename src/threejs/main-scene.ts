@@ -12,15 +12,15 @@ import {
     WebGLRenderer
 } from "three"
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
-import {VoxelWorld} from "./voxel-world"
+import {WorldScene} from "./world-scene"
 import {Water} from "three/examples/jsm/objects/Water"
 import {Sky} from "three/examples/jsm/objects/Sky"
 
 const clock = new Clock()
 
 
-export class VoxelWorldManager {
-    private readonly voxelWorld: VoxelWorld
+export class MainScene {
+    private readonly worldScene: WorldScene
     readonly scene: Scene
     readonly camera: PerspectiveCamera
     private readonly controls: OrbitControls
@@ -41,13 +41,13 @@ export class VoxelWorldManager {
     private sun?: Vector3
 
     constructor(
-        voxelWorld: VoxelWorld,
+        worldScene: WorldScene,
         camera: PerspectiveCamera,
         controls: OrbitControls) {
-        this.voxelWorld = voxelWorld
+        this.worldScene = worldScene
 
         const scene = new Scene()
-        scene.add((voxelWorld.parent))
+        scene.add((worldScene.parent))
 
         this.scene = scene
         this.camera = camera
@@ -79,12 +79,13 @@ export class VoxelWorldManager {
         this.water = water
     }
 
-    addSky(renderer: WebGLRenderer, pmremGenerator: PMREMGenerator) {
+    addSky(elevation: number, renderer: WebGLRenderer, pmremGenerator: PMREMGenerator) {
         this.sky = new Sky()
         this.sky.scale.setScalar(10000)
         this.scene.add(this.sky)
 
         this.sun = new Vector3()
+        this.effectController.elevation = elevation
 
         this.updateSky(renderer, pmremGenerator)
     }
@@ -113,8 +114,8 @@ export class VoxelWorldManager {
     }
 
     generateChunk = (x: number, y: number, z: number) => {
-        this.voxelWorld.generateChunk(x, y, z)
-        this.voxelWorld.generateUnits()
+        this.worldScene.generateChunk(x, y, z)
+        this.worldScene.generateUnits()
     }
 
     render(renderer: WebGLRenderer) {
@@ -126,7 +127,7 @@ export class VoxelWorldManager {
             // this.updateSky(renderer)
         }
 
-        this.voxelWorld.update(delta)
+        this.worldScene.update(delta)
         this.controls.update()
         renderer.render(this.scene, this.camera)
     }
@@ -137,7 +138,7 @@ export class VoxelWorldManager {
             return
         }
 
-        const {scene, camera, raycaster, voxelWorld} = this
+        const {scene, camera, raycaster, worldScene} = this
         // 1. sets the mouse position with a coordinate system where the center
         //   of the screen is the origin
         const mouse = {
@@ -160,7 +161,7 @@ export class VoxelWorldManager {
                     - point : intersection point (THREE.Vector3)
                     - uv : intersection point in the object's UV coordinates (THREE.Vector2)
             */
-            voxelWorld.handleClick(intersects)
+            worldScene.handleClick(intersects)
         }
     }
 }

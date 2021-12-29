@@ -39,8 +39,6 @@ export class WorldMapService<N, K> {
             n++
         }
 
-        console.log("iterations: ", n)
-
         return accessiblePositions
     }
 }

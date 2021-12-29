@@ -1,24 +1,24 @@
-import {
-    BoxGeometry,
-    BufferAttribute,
-    BufferGeometry,
-    Group,
-    Intersection,
-    Material,
-    Mesh,
-    MeshStandardMaterial,
-    SpotLight
-} from "three"
+import {BoxGeometry, BufferGeometry, Group, Intersection, Material, Mesh, MeshStandardMaterial, SpotLight} from "three"
 import {Position2D, Position3D, Unit, World} from "../domain/model/world"
 import {initUnit, UnitView} from "./units"
-import {TextureInfos} from "./textures"
+import {TextureInfos, updateChunkGeometry} from "./textures"
 
 type VoxelWorldOptions = {
     world: World,
     textureInfos: TextureInfos
 }
 
-export class VoxelWorld {
+const neighborOffsets = [
+    [0, 0, 0], // self
+    [-1, 0, 0], // left
+    [1, 0, 0], // right
+    [0, -1, 0], // down
+    [0, 1, 0], // up
+    [0, 0, -1], // back
+    [0, 0, 1], // front
+]
+
+export class WorldScene {
     private readonly world: World
     private readonly textureInfos: TextureInfos
     private readonly chunkIdToMesh: Map<string, Mesh> = new Map()
@@ -28,16 +28,6 @@ export class VoxelWorld {
     readonly parent: Group
     private readonly unitLayer: Group
     private readonly rangeLayer: Group
-
-    private readonly neighborOffsets = [
-        [0, 0, 0], // self
-        [-1, 0, 0], // left
-        [1, 0, 0], // right
-        [0, -1, 0], // down
-        [0, 1, 0], // up
-        [0, 0, -1], // back
-        [0, 0, 1], // front
-    ]
 
     constructor({world, textureInfos}: VoxelWorldOptions) {
         this.world = world
@@ -163,8 +153,11 @@ export class VoxelWorld {
     }
 
     generateChunk(x: number, y: number, z: number) {
+        const {chunkSize, getVoxel} = this.world.worldMap
+        const {textureInfos} = this
+
         const updatedCellIds = new Map<string, boolean>()
-        for (const offset of this.neighborOffsets) {
+        for (const offset of neighborOffsets) {
             const ox = x + offset[0]
             const oy = y + offset[1]
             const oz = z + offset[2]
@@ -172,107 +165,29 @@ export class VoxelWorld {
             if (!updatedCellIds.get(cellId)) {
                 updatedCellIds.set(cellId, true)
                 let mesh = this.getChunkMesh(ox, oy, oz)
-
                 if (!mesh) {
                     mesh = this.createCellMesh(ox, oy, oz)
                     this.parent.add(mesh)
-                    mesh.position.set(ox, oy, oz)
+                    mesh.position.set(x, y, z)
                 }
-                this.updateChunkGeometry(ox, oy, oz)
+                updateChunkGeometry(ox, oy, oz, chunkSize, mesh, textureInfos, getVoxel)
             }
-        }
-    }
-
-    private updateChunkGeometry(x: number, y: number, z: number) {
-        const {chunkSize} = this.world.worldMap
-        const cellX = Math.floor(x / chunkSize)
-        const cellY = Math.floor(y / chunkSize)
-        const cellZ = Math.floor(z / chunkSize)
-        const mesh = this.getChunkMesh(x, y, z)
-
-        if (mesh) {
-            const geometry = mesh.geometry
-            const {positions, normals, uvs, indices} = this.generateGeometryDataForChunk(cellX, cellY, cellZ)
-            const positionNumComponents = 3
-            geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), positionNumComponents))
-            const normalNumComponents = 3
-            geometry.setAttribute('normal', new BufferAttribute(new Float32Array(normals), normalNumComponents))
-            const uvNumComponents = 2
-            geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), uvNumComponents))
-            geometry.setIndex(indices)
-            geometry.computeBoundingSphere()
         }
     }
 
     generateUnits = () => {
         const {unitLayer, world, unitsToMesh} = this
-        world.units.forEach((unit) => {
-            const p = world.unitsToPositions.get(unit.id)
-            if (p) {
-                const unitMesh = initUnit(unit, p)
-                unitMesh.idle.play()
-                unitLayer.add(unitMesh.mesh)
-                unitsToMesh.set(unit, unitMesh)
-            }
-        })
-    }
-
-    private generateGeometryDataForChunk(cellX: number, cellY: number, cellZ: number) {
-        const {tileSize, tileTextureWidth, tileTextureHeight} = this.textureInfos
-        const {chunkSize} = this.world.worldMap
-        const positions = []
-        const normals = []
-        const uvs = []
-        const indices = []
-        const startX = cellX * chunkSize
-        const startY = cellY * chunkSize
-        const startZ = cellZ * chunkSize
-
-        for (let y = 0; y < chunkSize; ++y) {
-            const voxelY = startY + y
-            for (let z = 0; z < chunkSize; ++z) {
-                const voxelZ = startZ + z
-                for (let x = 0; x < chunkSize; ++x) {
-                    const voxelX = startX + x
-                    const voxel = this.world.worldMap.getVoxel({x: voxelX, y: voxelY, z: voxelZ})
-                    if (voxel) {
-                        // voxel 0 is sky (empty) so for UVs we start at 0
-                        const uvVoxel = voxel - 1
-                        // There is a voxel here but do we need faces for it?
-                        for (const {dir, corners, uvRow} of this.textureInfos.faces) {
-                            const neighbor = this.world.worldMap.getVoxel(
-                                {
-                                    x: voxelX + dir[0],
-                                    y: voxelY + dir[1],
-                                    z: voxelZ + dir[2]
-                                })
-                            if (!neighbor) {
-                                // this voxel has no neighbor in this direction so we need a face.
-                                const ndx = positions.length / 3
-                                for (const {pos, uv} of corners) {
-                                    positions.push(pos[0] + x, pos[1] + y, pos[2] + z)
-                                    normals.push(...dir)
-                                    uvs.push(
-                                        (uvVoxel + uv[0]) * tileSize / tileTextureWidth,
-                                        1 - (uvRow + 1 - uv[1]) * tileSize / tileTextureHeight)
-                                }
-                                indices.push(
-                                    ndx, ndx + 1, ndx + 2,
-                                    ndx + 2, ndx + 1, ndx + 3,
-                                )
-                            }
-                        }
-                    }
+        world.playersUnits.forEach((units, player) => {
+            units.forEach(unit => {
+                const p = world.getPosition(unit)
+                if (p) {
+                    const unitMesh = initUnit(unit, p, player)
+                    unitMesh.idle.play()
+                    unitLayer.add(unitMesh.mesh)
+                    unitsToMesh.set(unit, unitMesh)
                 }
-            }
-        }
-
-        return {
-            positions,
-            normals,
-            uvs,
-            indices,
-        }
+            })
+        })
     }
 
     update = (time: number) => {
@@ -304,14 +219,16 @@ export class VoxelWorld {
         rangeLayer.remove(...rangeLayer.children)
 
         console.log(`Moving unit (id=${unitMesh.unit.id}) to`, p)
-        unitMesh.computeMovingAnimation(path, 2)
+        unitMesh.computeMovingAnimation(path, 3)
         unitMesh.move?.play()
     }
 
-    private createRangeMesh = (p: Position3D): Mesh => {
+    private createRangeMesh = (unitView:UnitView, p: Position3D): Mesh => {
         const mesh = new Mesh(new BoxGeometry(1, 0.1, 1), new MeshStandardMaterial({
             roughness: 0,
-            color: "#ff0000"
+            color: unitView.player.color,
+            opacity: 0.4,
+            transparent: true
         }))
         mesh.position.set(p.x, p.y - 1, p.z)
         return mesh
@@ -327,7 +244,7 @@ export class VoxelWorld {
         selectionLight.target = unitView?.mesh
 
         rangeLayer.remove(...rangeLayer.children)
-        world.getAccessiblePositions(unitView.unit).map(p => createRangeMesh(p)).forEach(mesh => rangeLayer.add(mesh))
+        world.getAccessiblePositions(unitView.unit).map(p => createRangeMesh(unitView, p)).forEach(mesh => rangeLayer.add(mesh))
     }
 
     handleClick = (intersects: Intersection[]) => {

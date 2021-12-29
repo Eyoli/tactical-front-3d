@@ -1,5 +1,6 @@
-import {Unit, World, WorldMap} from "../src/domain/model/world"
+import {Player, Unit, World} from "../src/domain/model/world"
 import {WorldMapService} from "../src/domain/service/services"
+import {WorldMap} from "../src/domain/model/world-map"
 
 const pathFinderManager = new WorldMapService()
 
@@ -29,18 +30,35 @@ describe('world', () => {
 
     it('should select a unit and move it', () => {
         const worldMap = initWorldMap(10)
+        const player: Player = {id: 1, name: "P1", color: '#ff0000'}
         const world = new World(worldMap)
-        world.addUnit(aUnit(), {x: 1, z: 1})
+            .addPlayers(player)
+            .addUnit(aUnit(), {x: 1, z: 1}, player)
 
         world.moveUnit(world.units[0], {x: 5, z: 5})
 
-        expect(world.unitsToPositions.get(world.units[0].id)).toEqual({x: 5, y: 1, z: 5})
+        expect(world.getPosition(world.units[0])).toEqual({x: 5, y: 1, z: 5})
+    })
+
+    it('should take into account forbidden positions', () => {
+        const worldMap = initWorldMap(3, [[1, 1, 1], [2, 0, 1], [1, 1, 1]])
+        const player: Player = {id: 1, name: "P1", color: '#ff0000'}
+        const world = new World(worldMap)
+            .addPlayers(player)
+            .addUnit(aUnit(), {x: 1, z: 1}, player)
+            .addUnit(aUnit(), {x: 0, z: 1}, player)
+
+        const positions = world.getAccessiblePositions(world.units[0])
+
+        expect(positions).not.toContain({x: 0, y: 2, z: 1})
     })
 
     it('should get positions accessible to a unit', () => {
         const worldMap = initWorldMap(3, [[1, 1, 1], [2, 0, 1], [1, 1, 1]])
+        const player: Player = {id: 1, name: "P1", color: '#ff0000'}
         const world = new World(worldMap)
-        world.addUnit(aUnit(), {x: 1, z: 1})
+            .addPlayers(player)
+            .addUnit(aUnit(), {x: 1, z: 1}, player)
 
         const positions = world.getAccessiblePositions(world.units[0])
 

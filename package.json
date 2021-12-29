@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "webpack serve --mode development --progress --hot --config ./webpack.config.development.js",
         "build": "webpack --mode production --config ./webpack.config.production.js",
-        "test": "jasmine-ts -r esm \"spec/**/*.spec.ts\""
+        "test": "jasmine-ts -r esm"
     },
     "keywords": [
         "three.js",
@@ -17,6 +17,7 @@
     "author": "Grant Bartlett",
     "license": "MIT",
     "dependencies": {
+        "immutable": "^4.0.0",
         "three": "^0.134.0"
     },
     "devDependencies": {
