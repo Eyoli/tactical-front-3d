@@ -161,7 +161,7 @@ export class MainScene {
                     - point : intersection point (THREE.Vector3)
                     - uv : intersection point in the object's UV coordinates (THREE.Vector2)
             */
-            worldScene.handleClick(intersects)
+            worldScene.handleLeftClick(intersects)
         }
     }
 }

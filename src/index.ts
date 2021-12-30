@@ -4,9 +4,11 @@ import {MainScene} from "./threejs/main-scene"
 import {BasicWorldMapGenerator} from "./threejs/world-map-generator"
 import {stats} from "./monitoring/stats"
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
-import {Player, World} from "./domain/model/world"
+import {World} from "./domain/model/world"
 import {loadMinimalTexture} from "./threejs/textures"
 import {WorldMap} from "./domain/model/world-map"
+import {Player, Unit, UnitState} from "./domain/model/types"
+import GUI from "lil-gui"
 
 function main() {
     const renderer = new WebGLRenderer()
@@ -49,14 +51,14 @@ function main() {
     const player2: Player = {id: 2, name: "P2", color: '#00ff00'}
     const world = new World(worldMap)
         .addPlayers(player1, player2)
-        .addUnit({id: 1, moves: 5, jump: 1}, {x: 1, z: 1}, player1)
-        .addUnit({id: 2, moves: 7, jump: 2}, {x: 5, z: 5}, player2)
-    const voxelWorld = new WorldScene({
+        .addUnit(new Unit({id: 1, name: "Knight", moves: 5, jump: 1}), {x: 1, z: 1}, player1)
+        .addUnit(new Unit({id: 2, name: "Archer", moves: 7, jump: 2}), {x: 5, z: 5}, player2)
+    const worldScene = new WorldScene({
         world,
         textureInfos
     })
 
-    const mainScene = new MainScene(voxelWorld, camera, controls)
+    const mainScene = new MainScene(worldScene, camera, controls)
     mainScene.addWater()
     mainScene.addSky(10, renderer, pmremGenerator)
 
@@ -64,11 +66,26 @@ function main() {
     mainScene.generateChunk(0, 0, 0)
     // manager.generateVoxelGeometry(32, 0, 0)
 
-    let renderRequested: boolean | undefined = false
+    let unitGUI: GUI | undefined
+    const drawUnitGUI = (unit: Unit, state: UnitState) => {
+        if (unitGUI) {
+            unitGUI.destroy()
+        }
+        unitGUI = new GUI({title: unit.name})
+        unitGUI.add(unit, 'jump')
+        unitGUI.add(unit, 'moves')
+        unitGUI.add(state.position, 'x')
+        unitGUI.add(state.position, 'y')
+        unitGUI.add(state.position, 'z')
+        const actions = unitGUI.addFolder("Actions")
+        actions.add(worldScene, 'moveMode').name('Move')
+        actions.add(worldScene, 'attackMode').name('Attack')
+    }
+    worldScene.onUnitSelection(drawUnitGUI)
+    worldScene.onUnitAction(drawUnitGUI)
 
     function render() {
         requestAnimationFrame(render)
-        renderRequested = undefined
         mainScene.render(renderer)
     }
 

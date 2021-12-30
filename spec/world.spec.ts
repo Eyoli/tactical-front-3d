@@ -1,4 +1,5 @@
-import {Player, Unit, World} from "../src/domain/model/world"
+import {World} from "../src/domain/model/world"
+import {Player, Unit} from "../src/domain/model/types"
 import {WorldMapService} from "../src/domain/service/services"
 import {WorldMap} from "../src/domain/model/world-map"
 
@@ -15,7 +16,9 @@ const initWorldMap = (chunkSize: number, heightmap?: number[][], data?: number[]
     return worldMap
 }
 
-const aUnit = (): Unit => ({id: 1, moves: 1, jump: 1})
+const aUnit = (): Unit => new Unit({
+    id: 1, name: "", moves: 1, jump: 1, weapon: {range: {min: 1, max: 2, vMax: 1}, power: 0, area: 1}
+})
 
 describe('world', () => {
 
@@ -48,23 +51,42 @@ describe('world', () => {
             .addUnit(aUnit(), {x: 1, z: 1}, player)
             .addUnit(aUnit(), {x: 0, z: 1}, player)
 
-        const positions = world.getAccessiblePositions(world.units[0])
+        const positions = world.getReachablePositions(world.units[0])
 
         expect(positions).not.toContain({x: 0, y: 2, z: 1})
     })
 
-    it('should get positions accessible to a unit', () => {
+    it('should get reachable positions for a given unit', () => {
         const worldMap = initWorldMap(3, [[1, 1, 1], [2, 0, 1], [1, 1, 1]])
         const player: Player = {id: 1, name: "P1", color: '#ff0000'}
         const world = new World(worldMap)
             .addPlayers(player)
             .addUnit(aUnit(), {x: 1, z: 1}, player)
 
-        const positions = world.getAccessiblePositions(world.units[0])
+        const positions = world.getReachablePositions(world.units[0])
 
         expect(positions.length).toBe(3)
         expect(positions).toContain({x: 0, y: 2, z: 1})
         expect(positions).toContain({x: 2, y: 2, z: 1})
         expect(positions).toContain({x: 1, y: 2, z: 2})
+    })
+
+    it('should get reachable positions for a given weapon', () => {
+        const worldMap = initWorldMap(3, [[0, 1, 1], [2, 0, 1], [1, 1, 1]])
+        const player: Player = {id: 1, name: "P1", color: '#ff0000'}
+        const world = new World(worldMap)
+            .addPlayers(player)
+            .addUnit(aUnit(), {x: 1, z: 1}, player)
+
+        const positions = world.getReachablePositionsForWeapon(world.units[0])
+
+        expect(positions.length).toBe(7)
+        expect(positions).toContain({x: 0, y: 1, z: 0})
+        expect(positions).toContain({x: 0, y: 2, z: 1})
+        expect(positions).toContain({x: 0, y: 2, z: 2})
+        expect(positions).toContain({x: 1, y: 2, z: 2})
+        expect(positions).toContain({x: 2, y: 2, z: 0})
+        expect(positions).toContain({x: 2, y: 2, z: 1})
+        expect(positions).toContain({x: 2, y: 2, z: 2})
     })
 })

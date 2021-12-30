@@ -1,5 +1,5 @@
 import {Graph} from "../algorithm/path-finder"
-import {Position3D} from "./world"
+import {Position3D} from "./types"
 
 export class WorldMap implements Graph<Position3D, number> {
     readonly chunkSize: number
