@@ -1,5 +1,5 @@
 import {BoxGeometry, BufferGeometry, Group, Intersection, Material, Mesh, MeshStandardMaterial, SpotLight} from "three"
-import {Position2D, Position3D, Unit, UnitState} from "../domain/model/types"
+import {AttackAction, Position2D, Position3D, Unit, UnitState} from "../domain/model/types"
 import {initUnit, UnitView} from "./units"
 import {TextureInfos, updateChunkGeometry} from "./textures"
 import {World} from "../domain/model/world"
@@ -25,7 +25,7 @@ type SelectionMode = 'move' | 'attack'
 export class WorldScene {
     private readonly world: World
     private readonly textureInfos: TextureInfos
-    private readonly chunkIdToMesh: Map<string, Mesh> = new Map()
+    private readonly chunkIdToMesh: Map<string, Mesh<BufferGeometry, Material>> = new Map()
     private readonly unitsToMesh: Map<Unit, UnitView> = new Map<Unit, UnitView>()
     private _selectedUnit?: UnitView
     private readonly selectionLight: SpotLight
@@ -61,102 +61,17 @@ export class WorldScene {
         return light
     }
 
-    getChunkMesh = (x: number, y: number, z: number): Mesh | undefined => {
+    getChunkMesh = (x: number, y: number, z: number): Mesh<BufferGeometry, Material> | undefined => {
         const cellId = this.world.worldMap.computeChunkId({x, y, z})
         return this.chunkIdToMesh.get(cellId)
     }
 
-    createCellMesh = (x: number, y: number, z: number): Mesh => {
+    createCellMesh = (x: number, y: number, z: number): Mesh<BufferGeometry, Material> => {
         const cellId = this.world.worldMap.computeChunkId({x, y, z})
         const mesh = new Mesh<BufferGeometry, Material>(new BufferGeometry(), this.textureInfos.material)
         mesh.name = cellId
         this.chunkIdToMesh.set(cellId, mesh)
         return mesh
-    }
-
-    // from
-    // http://www.cse.chalmers.se/edu/year/2010/course/TDA361/grid.pdf
-    intersectRay(start: Position3D, end: Position3D) {
-        let dx = end.x - start.x
-        let dy = end.y - start.y
-        let dz = end.z - start.z
-        const lenSq = dx * dx + dy * dy + dz * dz
-        const len = Math.sqrt(lenSq)
-
-        dx /= len
-        dy /= len
-        dz /= len
-
-        let t = 0.0
-        let ix = Math.floor(start.x)
-        let iy = Math.floor(start.y)
-        let iz = Math.floor(start.z)
-
-        const stepX = (dx > 0) ? 1 : -1
-        const stepY = (dy > 0) ? 1 : -1
-        const stepZ = (dz > 0) ? 1 : -1
-
-        const txDelta = Math.abs(1 / dx)
-        const tyDelta = Math.abs(1 / dy)
-        const tzDelta = Math.abs(1 / dz)
-
-        const xDist = (stepX > 0) ? (ix + 1 - start.x) : (start.x - ix)
-        const yDist = (stepY > 0) ? (iy + 1 - start.y) : (start.y - iy)
-        const zDist = (stepZ > 0) ? (iz + 1 - start.z) : (start.z - iz)
-
-        // location of nearest voxel boundary, in units of t
-        let txMax = (txDelta < Infinity) ? txDelta * xDist : Infinity
-        let tyMax = (tyDelta < Infinity) ? tyDelta * yDist : Infinity
-        let tzMax = (tzDelta < Infinity) ? tzDelta * zDist : Infinity
-
-        let steppedIndex = -1
-
-        // main loop along raycast vector
-        while (t <= len) {
-            const voxel = this.world.worldMap.getVoxel({x: ix, y: iy, z: iz})
-            if (voxel) {
-                return {
-                    position: [
-                        start.x + t * dx,
-                        start.y + t * dy,
-                        start.z + t * dz,
-                    ],
-                    normal: [
-                        steppedIndex === 0 ? -stepX : 0,
-                        steppedIndex === 1 ? -stepY : 0,
-                        steppedIndex === 2 ? -stepZ : 0,
-                    ],
-                }
-            }
-
-            // advance t to next nearest voxel boundary
-            if (txMax < tyMax) {
-                if (txMax < tzMax) {
-                    ix += stepX
-                    t = txMax
-                    txMax += txDelta
-                    steppedIndex = 0
-                } else {
-                    iz += stepZ
-                    t = tzMax
-                    tzMax += tzDelta
-                    steppedIndex = 2
-                }
-            } else {
-                if (tyMax < tzMax) {
-                    iy += stepY
-                    t = tyMax
-                    tyMax += tyDelta
-                    steppedIndex = 1
-                } else {
-                    iz += stepZ
-                    t = tzMax
-                    tzMax += tzDelta
-                    steppedIndex = 2
-                }
-            }
-        }
-        return null
     }
 
     generateChunk(x: number, y: number, z: number) {
@@ -171,13 +86,13 @@ export class WorldScene {
             const cellId = this.world.worldMap.computeChunkId({x: ox, y: oy, z: oz})
             if (!updatedCellIds.get(cellId)) {
                 updatedCellIds.set(cellId, true)
-                let mesh = this.getChunkMesh(ox, oy, oz)
-                if (!mesh) {
-                    mesh = this.createCellMesh(ox, oy, oz)
-                    this.parent.add(mesh)
-                    mesh.position.set(x, y, z)
+                let chunkMesh = this.getChunkMesh(ox, oy, oz)
+                if (!chunkMesh) {
+                    chunkMesh = this.createCellMesh(ox, oy, oz)
+                    this.parent.add(chunkMesh)
+                    chunkMesh.position.set(x, y, z)
                 }
-                updateChunkGeometry(ox, oy, oz, chunkSize, mesh, textureInfos, getVoxel)
+                updateChunkGeometry(ox, oy, oz, chunkSize, chunkMesh, textureInfos, getVoxel)
             }
         }
     }
@@ -206,8 +121,13 @@ export class WorldScene {
 
     getUnitMesh = (uuid: string): UnitView | undefined => Array.from(this.unitsToMesh.values()).find((unitMesh) => unitMesh.childrenIds.indexOf(uuid) > 0)
 
-    handleUnitMove = (unitView: UnitView, p: Position2D) => {
-        const {world, rangeLayer, _onUnitActionCallback} = this
+    handleUnitMove = (p: Position2D) => {
+        const {world, rangeLayer, _onUnitActionCallback, _selectedUnit: unitView} = this
+
+        if (!unitView) {
+            console.log('No unit has been selected')
+            return
+        }
 
         // Verify that the position can be accessed
         const accessiblePositions = world.getReachablePositions(unitView.unit)
@@ -226,13 +146,32 @@ export class WorldScene {
         rangeLayer.remove(...rangeLayer.children)
 
         console.log(`Moving unit (id=${unitView.unit.id}) to`, p)
-        unitView.computeMovingAnimation(path, 3)
-        unitView.move?.play()
+        unitView.startMovingToward(path, 3)
 
         const state = world.getState(unitView.unit)
         if (_onUnitActionCallback && state) {
             _onUnitActionCallback(unitView.unit, state)
         }
+
+        this._selectedUnit = undefined
+    }
+
+    private handleUnitAction = (p: Position2D | Position3D) => {
+        const {world, rangeLayer, _onUnitActionCallback, _selectedUnit} = this
+
+        if (!_selectedUnit) return
+
+        const target = world.getUnits([p])
+        world.executeAction(new AttackAction(_selectedUnit?.unit), target)
+
+        console.log('Action executed on ', target)
+        const state = world.getState(_selectedUnit.unit)
+        if (_onUnitActionCallback && state) {
+            _onUnitActionCallback(_selectedUnit.unit, state)
+        }
+
+        rangeLayer.remove(...rangeLayer.children)
+        this._selectedUnit = undefined
     }
 
     private createRangeMesh = (unitView: UnitView, p: Position3D): Mesh => {
@@ -264,7 +203,7 @@ export class WorldScene {
     }
 
     private handleAttackActionSelection = (unitView: UnitView) => {
-        const {world, rangeLayer, selectionLight, createRangeMesh, _onUnitSelectionCallback} = this
+        const {world, rangeLayer, createRangeMesh, _onUnitSelectionCallback} = this
 
         console.log('Displaying attack range', unitView)
 
@@ -293,14 +232,29 @@ export class WorldScene {
     }
 
     handleLeftClick = (intersects: Intersection[]) => {
-        const {world, _mode, handleMoveActionSelection, handleAttackActionSelection, getUnitMesh, handleUnitMove} = this
+        const {
+            world,
+            _mode,
+            _selectedUnit,
+            handleMoveActionSelection,
+            handleAttackActionSelection,
+            handleUnitAction,
+            getUnitMesh,
+            handleUnitMove
+        } = this
         const unitView = intersects.map(i => getUnitMesh(i.object.uuid)).find(i => i != undefined)
         if (unitView) {
-            _mode === "move" ? handleMoveActionSelection(unitView) : handleAttackActionSelection(unitView)
-        } else if (intersects.length > 0 && this._selectedUnit?.isMoving) {
+            if(_mode === "move") {
+                handleMoveActionSelection(unitView)
+            } else if (_selectedUnit === unitView) {
+                handleAttackActionSelection(unitView)
+            } else {
+                const position = world.getPosition(unitView.unit)
+                handleUnitAction(position)
+            }
+        } else if (intersects.length > 0 && _selectedUnit?.isMoving) {
             const p = world.getClosestPosition({x: intersects[0].point.x, z: intersects[0].point.z})
-            handleUnitMove(this._selectedUnit, p)
-            this._selectedUnit = undefined
+            handleUnitMove(p)
         }
     }
 }

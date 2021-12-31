@@ -51,8 +51,8 @@ function main() {
     const player2: Player = {id: 2, name: "P2", color: '#00ff00'}
     const world = new World(worldMap)
         .addPlayers(player1, player2)
-        .addUnit(new Unit({id: 1, name: "Knight", moves: 5, jump: 1}), {x: 1, z: 1}, player1)
-        .addUnit(new Unit({id: 2, name: "Archer", moves: 7, jump: 2}), {x: 5, z: 5}, player2)
+        .addUnit(new Unit({id: 1, name: "Knight", moves: 5, jump: 1, hp: 10}), {x: 1, z: 1}, player1)
+        .addUnit(new Unit({id: 2, name: "Archer", moves: 7, jump: 2, hp: 10}), {x: 5, z: 5}, player2)
     const worldScene = new WorldScene({
         world,
         textureInfos

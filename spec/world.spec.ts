@@ -17,7 +17,7 @@ const initWorldMap = (chunkSize: number, heightmap?: number[][], data?: number[]
 }
 
 const aUnit = (): Unit => new Unit({
-    id: 1, name: "", moves: 1, jump: 1, weapon: {range: {min: 1, max: 2, vMax: 1}, power: 0, area: 1}
+    id: 1, name: "", moves: 1, jump: 1, hp: 10, weapon: {range: {min: 1, max: 2, vMax: 1}, power: 0, area: 1}
 })
 
 describe('world', () => {
@@ -53,7 +53,7 @@ describe('world', () => {
 
         const positions = world.getReachablePositions(world.units[0])
 
-        expect(positions).not.toContain({x: 0, y: 2, z: 1})
+        expect(positions).not.toContainEqual({x: 0, y: 2, z: 1})
     })
 
     it('should get reachable positions for a given unit', () => {
@@ -66,9 +66,9 @@ describe('world', () => {
         const positions = world.getReachablePositions(world.units[0])
 
         expect(positions.length).toBe(3)
-        expect(positions).toContain({x: 0, y: 2, z: 1})
-        expect(positions).toContain({x: 2, y: 2, z: 1})
-        expect(positions).toContain({x: 1, y: 2, z: 2})
+        expect(positions).toContainEqual({x: 0, y: 2, z: 1})
+        expect(positions).toContainEqual({x: 2, y: 2, z: 1})
+        expect(positions).toContainEqual({x: 1, y: 2, z: 2})
     })
 
     it('should get reachable positions for a given weapon', () => {
@@ -81,12 +81,12 @@ describe('world', () => {
         const positions = world.getReachablePositionsForWeapon(world.units[0])
 
         expect(positions.length).toBe(7)
-        expect(positions).toContain({x: 0, y: 1, z: 0})
-        expect(positions).toContain({x: 0, y: 2, z: 1})
-        expect(positions).toContain({x: 0, y: 2, z: 2})
-        expect(positions).toContain({x: 1, y: 2, z: 2})
-        expect(positions).toContain({x: 2, y: 2, z: 0})
-        expect(positions).toContain({x: 2, y: 2, z: 1})
-        expect(positions).toContain({x: 2, y: 2, z: 2})
+        expect(positions).toContainEqual({x: 0, y: 1, z: 0})
+        expect(positions).toContainEqual({x: 0, y: 2, z: 1})
+        expect(positions).toContainEqual({x: 0, y: 2, z: 2})
+        expect(positions).toContainEqual({x: 1, y: 2, z: 2})
+        expect(positions).toContainEqual({x: 2, y: 2, z: 0})
+        expect(positions).toContainEqual({x: 2, y: 2, z: 1})
+        expect(positions).toContainEqual({x: 2, y: 2, z: 2})
     })
 })

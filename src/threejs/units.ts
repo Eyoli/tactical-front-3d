@@ -31,7 +31,7 @@ export class UnitView {
         this.childrenIds = this.computeChildrenIds(mesh)
     }
 
-    computeMovingAnimation = (path: Position3D[], speed: number = 1) => {
+    startMovingToward = (path: Position3D[], speed: number = 1) => {
         const object = this
         const values: number[] = [], times: number[] = []
         path.forEach(({x, y, z}, i) => {
@@ -57,6 +57,8 @@ export class UnitView {
         mixer.addEventListener('finished', () => {
             object.move = undefined
         })
+
+        object.move?.play()
     }
 
     get isMoving() {

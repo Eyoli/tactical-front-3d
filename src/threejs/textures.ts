@@ -1,5 +1,5 @@
 import {
-    BufferAttribute,
+    BufferAttribute, BufferGeometry,
     DoubleSide,
     Material,
     Mesh,
@@ -103,7 +103,7 @@ export const updateChunkGeometry = (
     y: number,
     z: number,
     chunkSize: number,
-    mesh: Mesh,
+    mesh: Mesh<BufferGeometry, Material>,
     textureInfos: TextureInfos,
     getVoxel: ({x, y, z}: Position3D) => number) => {
     const cellX = Math.floor(x / chunkSize)

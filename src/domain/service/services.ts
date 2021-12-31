@@ -25,13 +25,15 @@ export class WorldMapService<N, K> {
 
     getAccessibleNodes(graph: Graph<N, K>, start: N, minCost: number, maxCost: number, filter?: EdgeFilter<N>): N[] {
         const accessiblePositions: N[] = []
-        const candidates = getCandidates(graph, start, 0, filter)
+        const tested: N[] = []
+        const candidates = [{node: start, cost: 0}]
         let n = 0
         while (candidates.length > 0) {
             const candidate = candidates.shift()!
             const nodeKey = graph.getNodeKey(candidate.node)
-            const wasAlreadyAdded = accessiblePositions.find(node => nodeKey === graph.getNodeKey(node))
-            if (candidate.cost <= maxCost && !wasAlreadyAdded) {
+            const isAlreadyTested = tested.find(node => nodeKey === graph.getNodeKey(node))
+            if (candidate.cost <= maxCost && !isAlreadyTested) {
+                tested.push(candidate.node)
                 if (candidate.cost >= minCost) {
                     accessiblePositions.push(candidate.node)
                 }

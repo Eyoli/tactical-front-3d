@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "webpack serve --mode development --progress --hot --config ./webpack.config.development.js",
         "build": "webpack --mode production --config ./webpack.config.production.js",
-        "test": "jasmine-ts -r esm"
+        "test": "jest"
     },
     "keywords": [
         "three.js",
@@ -31,8 +31,6 @@
         "esm": "^3.2.25",
         "file-loader": "^6.2.0",
         "html-webpack-plugin": "^5.5.0",
-        "jasmine": "^3.10.0",
-        "jasmine-ts": "^0.4.0",
         "jest": "^27.4.3",
         "mini-css-extract-plugin": "^2.4.5",
         "postcss": "^8.4.4",
@@ -42,6 +40,7 @@
         "sass-loader": "^12.3.0",
         "style-loader": "^3.3.1",
         "terser-webpack-plugin": "^5.2.5",
+        "ts-jest": "^27.1.2",
         "ts-loader": "^9.2.6",
         "ts-node": "^10.4.0",
         "typescript": "^4.5.2",

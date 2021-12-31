@@ -2,10 +2,12 @@ import {EdgeFilter} from "../algorithm/path-finder"
 import {WorldMapService} from "../service/services"
 import {WorldMap} from "./world-map"
 import Immutable from "immutable"
-import {Player, Position2D, Position3D, Unit, UnitState} from "./types"
+import {Action, Player, Position2D, Position3D, Unit, UnitState} from "./types"
 
 const edgeFilter = (vMax: number, occupied: Position3D[]): EdgeFilter<Position3D> => (p1, p2) => !occupied.find(p => p.x === p2.x && p.z === p2.z)
     && Math.abs(p2.y - p1.y) <= vMax
+
+const last = <T>(array: T[]): T => array[array.length - 1]
 
 const worldMapService: WorldMapService<Position3D, number> = new WorldMapService()
 
@@ -13,7 +15,7 @@ export class World {
     private readonly _units: Unit[] = []
     private readonly _players: Player[] = []
     private readonly _playersUnits = new Map<Player, Unit[]>()
-    private readonly unitsState = new Map<number, UnitState[]>()
+    private readonly unitsState = new Map<Unit, UnitState[]>()
 
     readonly worldMap: WorldMap
 
@@ -36,43 +38,28 @@ export class World {
     }
 
     addUnit = (unit: Unit, p: Position2D, player: Player) => {
-        const units = this._playersUnits.get(player)
+        const {_playersUnits, _units, unitsState, getPosition3D} = this
+        const units = _playersUnits.get(player)
         if (!units) {
             throw new Error("Add the player before adding a unit")
         }
 
-        this._units.push(unit)
-        this.unitsState.set(unit.id, [{
-            position:
-                {
-                    x: p.x,
-                    y: this.worldMap.getHeight(p.x, p.z),
-                    z: p.z
-                }
-        }])
+        _units.push(unit)
+        unitsState.set(unit, [UnitState.init(unit, getPosition3D(p))])
         units.push(unit)
 
         return this
     }
 
-    moveUnit = (unit: Unit, {x, z}: Position2D) => {
-        const {getPosition} = this
+    moveUnit = (unit: Unit, p: Position2D) => {
+        const {getPosition, getPosition3D, getState} = this
         const from = getPosition(unit)
-        // No current position for the selected unit, we do nothing
-        if (!from) {
-            console.log("No starting point")
-            return null
-        }
-
-        const to = {
-            x: x,
-            y: this.worldMap.getHeight(x, z),
-            z: z
-        }
+        const to = getPosition3D(p)
         const pathFinder = worldMapService.getShortestPath(this.worldMap, from, to, edgeFilter(unit.jump, this.getUnitPositions()))
         const result = pathFinder.find()
         if (result.path) {
-            this.unitsState.get(unit.id)?.push({position: to})
+            const lastState = getState(unit)
+            this.unitsState.get(unit)?.push(lastState.to(to))
         }
         return result.path
     }
@@ -85,9 +72,6 @@ export class World {
         const {worldMap, getPosition} = this
 
         let p = getPosition(unit)
-        // If we can't find unit position, we stop here
-        if (!p) return []
-
         return worldMapService.getAccessibleNodes(
             worldMap,
             p,
@@ -101,25 +85,56 @@ export class World {
 
         // If we can't find unit position, we stop here
         let p = getPosition(unit)
-        if (!p) return []
 
         return worldMapService.getAccessibleNodes(
             worldMap,
             p,
             unit.weapon.range.min,
             unit.weapon.range.max,
-            edgeFilter(unit.weapon.range.vMax, this.getUnitPositions()))
+            edgeFilter(unit.weapon.range.vMax, []))
     }
 
-    getPosition = (unit: Unit) => this.getState(unit)?.position
+    getPosition = (unit: Unit): Position3D => {
+        const p = this.getState(unit)?.position
+        if (!p) throw new Error(`Unit (id=${unit.id}) without position`)
+        return p
+    }
 
-    getState = (unit: Unit) => {
-        const states = this.unitsState.get(unit.id)
-        if (!states) {
-            return undefined
-        }
+    getState = (unit: Unit): UnitState => {
+        const states = this.getStates(unit)
         return states[states.length - 1]
     }
 
-    private getUnitPositions = () => Array.from(this.unitsState.values()).map(states => states[states.length - 1].position)
+    getUnits = (positions: Position2D[]): Unit[] => {
+        const {units, getState} = this
+        return units.filter(unit => {
+            const unitPosition = getState(unit)?.position
+            if (!unitPosition) return false
+            return positions.find(p => unitPosition.x === p.x && unitPosition.z === p.z)
+        })
+    }
+
+    executeAction(action: Action, targets: Unit[]) {
+        targets.map(this.getStates).forEach(states => {
+            const lastState = last(states)
+            const newState = action.actUpon(lastState)
+            states.push(newState)
+        })
+    }
+
+    private getPosition3D = ({x, z}: Position2D) => ({
+        x: x,
+        y: this.worldMap.getHeight(x, z),
+        z: z
+    })
+
+    private getStates = (unit: Unit): UnitState[] => {
+        const states = this.unitsState.get(unit)
+        if (!states) throw new Error(`Unit (id=${unit.id}) without state`)
+        return states
+    }
+
+    private unitStates = () => Array.from(this.unitsState.values())
+
+    private getUnitPositions = () => this.unitStates().map(states => last(states).position)
 }
