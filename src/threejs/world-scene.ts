@@ -1,13 +1,17 @@
-import {BoxGeometry, BufferGeometry, Group, Intersection, Material, Mesh, MeshStandardMaterial, SpotLight} from "three"
-import {AttackAction, Position2D, Position3D, Unit, UnitState} from "../domain/model/types"
+import {BufferGeometry, Group, Intersection, Material, Mesh, Vector3} from "three"
+import {Action, AttackAction, Position2D, Position3D, Unit} from "../domain/model/types"
 import {initUnit, UnitView} from "./units"
 import {TextureInfos, updateChunkGeometry} from "./textures"
 import {World} from "../domain/model/world"
+import {RangeView, TrajectoryView} from "./views"
 
 type VoxelWorldOptions = {
     world: World,
     textureInfos: TextureInfos
 }
+type SelectionMode = 'move' | 'attack'
+type WorldEvent = 'select' | 'unselect'
+type WorldEventCallback = (...args: any) => void
 
 const neighborOffsets = [
     [0, 0, 0], // self
@@ -18,9 +22,7 @@ const neighborOffsets = [
     [0, 0, -1], // back
     [0, 0, 1], // front
 ]
-
-type UnitActionCallback = (unit: Unit, state: UnitState) => void
-type SelectionMode = 'move' | 'attack'
+const toVector3D = ({x, y, z}: Position3D) => new Vector3(x, y, z)
 
 export class WorldScene {
     private readonly world: World
@@ -28,13 +30,13 @@ export class WorldScene {
     private readonly chunkIdToMesh: Map<string, Mesh<BufferGeometry, Material>> = new Map()
     private readonly unitsToMesh: Map<Unit, UnitView> = new Map<Unit, UnitView>()
     private _selectedUnit?: UnitView
-    private readonly selectionLight: SpotLight
+    private _selectedAction?: Action
+    private readonly rangeView: RangeView
     readonly parent: Group
     private readonly unitLayer: Group
-    private readonly rangeLayer: Group
-    private _onUnitSelectionCallback?: UnitActionCallback
-    private _onUnitActionCallback?: UnitActionCallback
-    private _mode: SelectionMode = 'move'
+    private trajectoryView: TrajectoryView
+    private _callbacks: Map<WorldEvent, WorldEventCallback> = new Map()
+    private _mode?: SelectionMode
 
     constructor({world, textureInfos}: VoxelWorldOptions) {
         this.world = world
@@ -46,19 +48,8 @@ export class WorldScene {
         this.unitLayer.position.set(0.5, 0, 0.5)
         this.parent.add(this.unitLayer)
 
-        this.rangeLayer = new Group()
-        this.rangeLayer.position.set(0.5, 1, 0.5)
-        this.parent.add(this.rangeLayer)
-
-        this.selectionLight = this.initSelectionLight()
-        this.parent.add(this.selectionLight)
-    }
-
-    private initSelectionLight = () => {
-        const light = new SpotLight(0x0000FF, 1, 0, 0.025, 1, 0.0001)
-        light.position.set(0, 30, 0)
-        light.visible = false
-        return light
+        this.rangeView = new RangeView(this.parent)
+        this.trajectoryView = new TrajectoryView()
     }
 
     getChunkMesh = (x: number, y: number, z: number): Mesh<BufferGeometry, Material> | undefined => {
@@ -112,27 +103,15 @@ export class WorldScene {
         })
     }
 
-    update = (time: number) => {
-        Array.from(this.unitsToMesh.values()).forEach((unit) => {
-            unit.idle.getMixer().update(time)
-            unit.move?.getMixer().update(time)
-        })
-    }
+    update = (time: number) => Array.from(this.unitsToMesh.values()).forEach(unitView => unitView.update(time))
 
     getUnitMesh = (uuid: string): UnitView | undefined => Array.from(this.unitsToMesh.values()).find((unitMesh) => unitMesh.childrenIds.indexOf(uuid) > 0)
 
     handleUnitMove = (p: Position2D) => {
-        const {world, rangeLayer, _onUnitActionCallback, _selectedUnit: unitView} = this
+        const {world, _callbacks, rangeView, _selectedUnit: unitView, select} = this
 
         if (!unitView) {
             console.log('No unit has been selected')
-            return
-        }
-
-        // Verify that the position can be accessed
-        const accessiblePositions = world.getReachablePositions(unitView.unit)
-        if (!accessiblePositions.find(accessiblePosition => accessiblePosition.x === p.x && accessiblePosition.z === p.z)) {
-            console.log(`Impossible to move unit (id=${unitView.unit.id}) to`, p, 'position is not accessible')
             return
         }
 
@@ -143,80 +122,78 @@ export class WorldScene {
             return
         }
 
-        rangeLayer.remove(...rangeLayer.children)
+        rangeView.clear()
 
         console.log(`Moving unit (id=${unitView.unit.id}) to`, p)
-        unitView.startMovingToward(path, 3)
+        unitView.startMovingToward(path, 5)
 
         const state = world.getState(unitView.unit)
-        if (_onUnitActionCallback && state) {
-            _onUnitActionCallback(unitView.unit, state)
+        const callback = _callbacks.get('select')
+        if (callback && state) {
+            callback(unitView.unit, state)
         }
 
-        this._selectedUnit = undefined
+        select(unitView)
     }
 
-    private handleUnitAction = (p: Position2D | Position3D) => {
-        const {world, rangeLayer, _onUnitActionCallback, _selectedUnit} = this
+
+    private handleUnitAction = (target: UnitView) => {
+        const {world, _callbacks, rangeView, _selectedUnit, _selectedAction, select, trajectoryView} = this
+        const p = world.getPosition(target.unit)
 
         if (!_selectedUnit) return
+        if (!_selectedAction) return
 
-        const target = world.getUnits([p])
-        world.executeAction(new AttackAction(_selectedUnit?.unit), target)
+        trajectoryView.draw(_selectedUnit, target.mesh)
 
-        console.log('Action executed on ', target)
+        world.executeAction(_selectedAction, p)
+
+        console.log("Action executed", _selectedAction, p)
+
         const state = world.getState(_selectedUnit.unit)
-        if (_onUnitActionCallback && state) {
-            _onUnitActionCallback(_selectedUnit.unit, state)
+        const callback = _callbacks.get('select')
+        if (callback && state) {
+            callback(_selectedUnit.unit, state)
         }
 
-        rangeLayer.remove(...rangeLayer.children)
-        this._selectedUnit = undefined
-    }
-
-    private createRangeMesh = (unitView: UnitView, p: Position3D): Mesh => {
-        const mesh = new Mesh(new BoxGeometry(1, 0.1, 1), new MeshStandardMaterial({
-            roughness: 0,
-            color: unitView.player.color,
-            opacity: 0.4,
-            transparent: true
-        }))
-        mesh.position.set(p.x, p.y - 1, p.z)
-        return mesh
+        rangeView.clear()
+        select(_selectedUnit)
     }
 
     private handleMoveActionSelection = (unitView: UnitView) => {
-        const {world, rangeLayer, selectionLight, createRangeMesh, _onUnitSelectionCallback} = this
+        const {world, rangeView, _callbacks} = this
 
-        console.log('Selecting unit', unitView)
+        rangeView.draw(unitView, world.getReachablePositions(unitView.unit))
+
+        const state = world.getState(unitView.unit)
+        const callback = _callbacks.get('select')
+        if (callback && state) {
+            console.log('Selecting unit', unitView.unit, state)
+            callback(unitView.unit, state)
+        }
 
         this._selectedUnit = unitView
-        selectionLight.visible = true
-        selectionLight.target = unitView?.mesh
-
-        rangeLayer.remove(...rangeLayer.children)
-        world.getReachablePositions(unitView.unit).map(p => createRangeMesh(unitView, p)).forEach(mesh => rangeLayer.add(mesh))
-        const state = world.getState(unitView.unit)
-        if (_onUnitSelectionCallback && state) {
-            _onUnitSelectionCallback(unitView.unit, state)
-        }
     }
 
     private handleAttackActionSelection = (unitView: UnitView) => {
-        const {world, rangeLayer, createRangeMesh, _onUnitSelectionCallback} = this
+        const {world, rangeView, _callbacks} = this
 
         console.log('Displaying attack range', unitView)
 
-        rangeLayer.remove(...rangeLayer.children)
-        world.getReachablePositionsForWeapon(unitView.unit).map(p => createRangeMesh(unitView, p)).forEach(mesh => rangeLayer.add(mesh))
+        const action = new AttackAction(unitView.unit)
+        rangeView.draw(unitView, world.getReachablePositionsForAction(action))
+
         const state = world.getState(unitView.unit)
-        if (_onUnitSelectionCallback && state) {
-            _onUnitSelectionCallback(unitView.unit, state)
+        const callback = _callbacks.get('select')
+        if (callback && state) {
+            callback(unitView.unit, state)
         }
+
+        this._selectedUnit = unitView
+        this._selectedAction = action
     }
 
-    onUnitSelection = (callback: UnitActionCallback) => this._onUnitSelectionCallback = callback
-    onUnitAction = (callback: UnitActionCallback) => this._onUnitActionCallback = callback
+    on = (event: WorldEvent, callback: WorldEventCallback) => this._callbacks.set(event, callback)
 
     attackMode = () => {
         this._mode = "attack"
@@ -224,6 +201,7 @@ export class WorldScene {
             this.handleAttackActionSelection(this._selectedUnit)
         }
     }
+
     moveMode = () => {
         this._mode = "move"
         if (this._selectedUnit) {
@@ -231,28 +209,50 @@ export class WorldScene {
         }
     }
 
+    private select = (unitView: UnitView) => {
+        const callback = this._callbacks.get('select')
+        const state = this.world.getState(unitView.unit)
+        if (callback && state) {
+            console.log('Selecting unit', unitView.unit, state)
+            callback(unitView.unit, state)
+        }
+        this.rangeView.draw(unitView, [state.position])
+        this._mode = undefined
+        this._selectedAction = undefined
+        this._selectedUnit = unitView
+    }
+
+    private unselect = () => {
+        this._selectedUnit = undefined
+        this._selectedAction = undefined
+        this.rangeView.clear()
+        const callback = this._callbacks.get('unselect')
+        callback && callback()
+    }
+
     handleLeftClick = (intersects: Intersection[]) => {
         const {
             world,
             _mode,
             _selectedUnit,
-            handleMoveActionSelection,
-            handleAttackActionSelection,
+            select,
+            unselect,
             handleUnitAction,
             getUnitMesh,
             handleUnitMove
         } = this
         const unitView = intersects.map(i => getUnitMesh(i.object.uuid)).find(i => i != undefined)
         if (unitView) {
-            if(_mode === "move") {
-                handleMoveActionSelection(unitView)
-            } else if (_selectedUnit === unitView) {
-                handleAttackActionSelection(unitView)
+            if (_selectedUnit) {
+                if (_selectedUnit === unitView) {
+                    unselect()
+                } else if (_mode === "attack") {
+                    handleUnitAction(unitView)
+                }
             } else {
-                const position = world.getPosition(unitView.unit)
-                handleUnitAction(position)
+                select(unitView)
             }
-        } else if (intersects.length > 0 && _selectedUnit?.isMoving) {
+        } else if (_mode === "move" && intersects.length > 0 && _selectedUnit?.isMoving) {
             const p = world.getClosestPosition({x: intersects[0].point.x, z: intersects[0].point.z})
             handleUnitMove(p)
         }

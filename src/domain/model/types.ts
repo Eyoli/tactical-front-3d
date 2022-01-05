@@ -48,7 +48,7 @@ export type Range = {
     vMax: number
 }
 
-export const BARE_FISTS: Weapon = {range: {min: 1, max: 1, vMax: 1}, power: 0, area: 1}
+export const BARE_FISTS: Weapon = {range: {min: 1, max: 1, vMax: 1}, power: 1, area: 1}
 
 export type Player = {
     id: number
@@ -77,15 +77,21 @@ export class UnitState {
 }
 
 export interface Action {
-    actUpon(target: UnitState): UnitState
+    modify(target: UnitState): UnitState
+    get source(): Unit
+    get range(): Range
 }
 
-export class AttackAction {
-    private source: Unit
+export class AttackAction implements Action {
+    readonly source: Unit
 
     constructor(source: Unit) {
         this.source = source
     }
 
-    actUpon = (target: UnitState): UnitState => target.modify(-1)
+    get range() {
+        return this.source.weapon.range
+    }
+
+    modify = (target: UnitState): UnitState => target.modify(-this.source.weapon.power)
 }

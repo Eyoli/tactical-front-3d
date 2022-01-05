@@ -9,6 +9,8 @@ const edgeFilter = (vMax: number, occupied: Position3D[]): EdgeFilter<Position3D
 
 const last = <T>(array: T[]): T => array[array.length - 1]
 
+const isAccessible = (p2D: Position2D, p3Ds: Position3D[]) => p3Ds.find(p => p.x === p2D.x && p.z === p2D.z)
+
 const worldMapService: WorldMapService<Position3D, number> = new WorldMapService()
 
 export class World {
@@ -37,24 +39,31 @@ export class World {
         return this
     }
 
-    addUnit = (unit: Unit, p: Position2D, player: Player) => {
+    addUnits = (newUnits: Unit[], p: Position2D, player: Player) => {
         const {_playersUnits, _units, unitsState, getPosition3D} = this
-        const units = _playersUnits.get(player)
-        if (!units) {
+        const playerUnits = _playersUnits.get(player)
+        if (!playerUnits) {
             throw new Error("Add the player before adding a unit")
         }
 
-        _units.push(unit)
-        unitsState.set(unit, [UnitState.init(unit, getPosition3D(p))])
-        units.push(unit)
+        _units.push(...newUnits)
+        playerUnits.push(...newUnits)
+        newUnits.forEach(unit => unitsState.set(unit, [UnitState.init(unit, getPosition3D(p))]))
 
         return this
     }
 
     moveUnit = (unit: Unit, p: Position2D) => {
-        const {getPosition, getPosition3D, getState} = this
+        const {getReachablePositions, getPosition, getPosition3D, getState} = this
+
         const from = getPosition(unit)
         const to = getPosition3D(p)
+
+        // Verify that the position can be accessed
+        if (!isAccessible(p, getReachablePositions(unit))) {
+            throw new Error("Impossible to move unit")
+        }
+
         const pathFinder = worldMapService.getShortestPath(this.worldMap, from, to, edgeFilter(unit.jump, this.getUnitPositions()))
         const result = pathFinder.find()
         if (result.path) {
@@ -80,18 +89,18 @@ export class World {
             edgeFilter(unit.jump, this.getUnitPositions()))
     }
 
-    getReachablePositionsForWeapon = (unit: Unit): Position3D[] => {
+    getReachablePositionsForAction = (action: Action): Position3D[] => {
         const {worldMap, getPosition} = this
 
         // If we can't find unit position, we stop here
-        let p = getPosition(unit)
+        let p = getPosition(action.source)
 
         return worldMapService.getAccessibleNodes(
             worldMap,
             p,
-            unit.weapon.range.min,
-            unit.weapon.range.max,
-            edgeFilter(unit.weapon.range.vMax, []))
+            action.range.min,
+            action.range.max,
+            edgeFilter(action.range.vMax, []))
     }
 
     getPosition = (unit: Unit): Position3D => {
@@ -114,12 +123,21 @@ export class World {
         })
     }
 
-    executeAction(action: Action, targets: Unit[]) {
+    executeAction(action: Action, p: Position2D) {
+        const {getUnits, getReachablePositionsForAction} = this
+
+        // Verify that the action can be triggered
+        if (!isAccessible(p, getReachablePositionsForAction(action))) {
+            throw new Error("Action impossible: target not in range")
+        }
+
+        const targets = getUnits([p])
         targets.map(this.getStates).forEach(states => {
             const lastState = last(states)
-            const newState = action.actUpon(lastState)
+            const newState = action.modify(lastState)
             states.push(newState)
         })
+        console.log(targets.map(this.getState))
     }
 
     private getPosition3D = ({x, z}: Position2D) => ({

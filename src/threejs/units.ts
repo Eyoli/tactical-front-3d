@@ -14,6 +14,18 @@ import {
 import {Player, Position3D, Unit} from "../domain/model/types"
 import {LoopOnce} from "three/src/constants"
 
+const computeChildrenIds = (mesh: Object3D) => {
+    let listToExplore: Object3D[] = []
+    let listToFill: string[] = []
+    let element: Object3D | undefined = mesh
+    while (element) {
+        listToFill.push(element.uuid)
+        listToExplore.push(...element.children)
+        element = listToExplore.shift()
+    }
+    return listToFill
+}
+
 export class UnitView {
     readonly mesh: Object3D
     readonly unit: Unit
@@ -28,7 +40,7 @@ export class UnitView {
         this.player = player
         const mixer = new AnimationMixer(mesh)
         this.idle = mixer.clipAction(idleAnimationClip)
-        this.childrenIds = this.computeChildrenIds(mesh)
+        this.childrenIds = computeChildrenIds(mesh)
     }
 
     startMovingToward = (path: Position3D[], speed: number = 1) => {
@@ -65,16 +77,9 @@ export class UnitView {
         return !this.move
     }
 
-    private computeChildrenIds = (mesh: Object3D) => {
-        let listToExplore: Object3D[] = []
-        let listToFill: string[] = []
-        let element: Object3D | undefined = mesh
-        while (element) {
-            listToFill.push(element.uuid)
-            listToExplore.push(...element.children)
-            element = listToExplore.shift()
-        }
-        return listToFill
+    update = (time: number) => {
+        this.idle.getMixer().update(time)
+        this.move?.getMixer().update(time)
     }
 }
 

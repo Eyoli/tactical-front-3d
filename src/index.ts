@@ -51,8 +51,8 @@ function main() {
     const player2: Player = {id: 2, name: "P2", color: '#00ff00'}
     const world = new World(worldMap)
         .addPlayers(player1, player2)
-        .addUnit(new Unit({id: 1, name: "Knight", moves: 5, jump: 1, hp: 10}), {x: 1, z: 1}, player1)
-        .addUnit(new Unit({id: 2, name: "Archer", moves: 7, jump: 2, hp: 10}), {x: 5, z: 5}, player2)
+        .addUnits([new Unit({id: 1, name: "Knight", moves: 5, jump: 1, hp: 10})], {x: 1, z: 1}, player1)
+        .addUnits([new Unit({id: 2, name: "Archer", moves: 7, jump: 2, hp: 10})], {x: 5, z: 5}, player2)
     const worldScene = new WorldScene({
         world,
         textureInfos
@@ -71,18 +71,21 @@ function main() {
         if (unitGUI) {
             unitGUI.destroy()
         }
-        unitGUI = new GUI({title: unit.name})
-        unitGUI.add(unit, 'jump')
-        unitGUI.add(unit, 'moves')
-        unitGUI.add(state.position, 'x')
-        unitGUI.add(state.position, 'y')
-        unitGUI.add(state.position, 'z')
-        const actions = unitGUI.addFolder("Actions")
-        actions.add(worldScene, 'moveMode').name('Move')
-        actions.add(worldScene, 'attackMode').name('Attack')
+        if (unit) {
+            unitGUI = new GUI({title: unit.name})
+            unitGUI.add(unit, 'jump')
+            unitGUI.add(unit, 'moves')
+            unitGUI.add(state, 'hp')
+            unitGUI.add(state.position, 'x')
+            unitGUI.add(state.position, 'y')
+            unitGUI.add(state.position, 'z')
+            const actions = unitGUI.addFolder("Actions")
+            actions.add(worldScene, 'moveMode').name('Move')
+            actions.add(worldScene, 'attackMode').name('Attack')
+        }
     }
-    worldScene.onUnitSelection(drawUnitGUI)
-    worldScene.onUnitAction(drawUnitGUI)
+    worldScene.on('select', drawUnitGUI)
+    worldScene.on('unselect', drawUnitGUI)
 
     function render() {
         requestAnimationFrame(render)
