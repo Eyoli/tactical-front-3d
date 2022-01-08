@@ -1,3 +1,6 @@
+import {FISTS, Range, Weapon} from "./weapons"
+import {ProjectileMotion} from "../algorithm/trajectory"
+
 export type Position3D = {
     x: number
     y: number
@@ -32,23 +35,9 @@ export class Unit {
         this.moves = initializer.moves
         this.jump = initializer.jump
         this.hp = initializer.hp
-        this.weapon = initializer.weapon ?? BARE_FISTS
+        this.weapon = initializer.weapon ?? FISTS(1)
     }
 }
-
-export type Weapon = {
-    range: Range
-    power: number
-    area: number
-}
-
-export type Range = {
-    min: number
-    max: number
-    vMax: number
-}
-
-export const BARE_FISTS: Weapon = {range: {min: 1, max: 1, vMax: 1}, power: 1, area: 1}
 
 export type Player = {
     id: number
@@ -78,8 +67,12 @@ export class UnitState {
 
 export interface Action {
     modify(target: UnitState): UnitState
+
     get source(): Unit
+
     get range(): Range
+
+    get trajectory(): string | undefined
 }
 
 export class AttackAction implements Action {
@@ -93,5 +86,14 @@ export class AttackAction implements Action {
         return this.source.weapon.range
     }
 
+    get trajectory() {
+        return this.source.weapon.trajectory
+    }
+
     modify = (target: UnitState): UnitState => target.modify(-this.source.weapon.power)
+}
+
+export type ActionResult = {
+    newStates: Map<Unit, UnitState>
+    trajectory: ProjectileMotion
 }

@@ -9,6 +9,7 @@ import {loadMinimalTexture} from "./threejs/textures"
 import {WorldMap} from "./domain/model/world-map"
 import {Player, Unit, UnitState} from "./domain/model/types"
 import GUI from "lil-gui"
+import {BOW} from "./domain/model/weapons"
 
 function main() {
     const renderer = new WebGLRenderer()
@@ -45,6 +46,7 @@ function main() {
         cellSize,
         cellSize,
         8,
+        1
     )
     worldGenerator.generate(worldMap)
     const player1: Player = {id: 1, name: "P1", color: '#ff0000'}
@@ -52,7 +54,10 @@ function main() {
     const world = new World(worldMap)
         .addPlayers(player1, player2)
         .addUnits([new Unit({id: 1, name: "Knight", moves: 5, jump: 1, hp: 10})], {x: 1, z: 1}, player1)
-        .addUnits([new Unit({id: 2, name: "Archer", moves: 7, jump: 2, hp: 10})], {x: 5, z: 5}, player2)
+        .addUnits([new Unit({id: 2, name: "Archer", moves: 7, jump: 2, hp: 10, weapon: BOW(3, 10, 1)})], {
+            x: 5,
+            z: 5
+        }, player2)
     const worldScene = new WorldScene({
         world,
         textureInfos

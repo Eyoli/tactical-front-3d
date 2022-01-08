@@ -2,7 +2,8 @@ import {EdgeFilter} from "../algorithm/path-finder"
 import {WorldMapService} from "../service/services"
 import {WorldMap} from "./world-map"
 import Immutable from "immutable"
-import {Action, Player, Position2D, Position3D, Unit, UnitState} from "./types"
+import {Action, ActionResult, Player, Position2D, Position3D, Unit, UnitState} from "./types"
+import {GRAVITATIONAL_FORCE_EQUIVALENT, ProjectileMotion} from "../algorithm/trajectory"
 
 const edgeFilter = (vMax: number, occupied: Position3D[]): EdgeFilter<Position3D> => (p1, p2) => !occupied.find(p => p.x === p2.x && p.z === p2.z)
     && Math.abs(p2.y - p1.y) <= vMax
@@ -123,21 +124,45 @@ export class World {
         })
     }
 
-    executeAction(action: Action, p: Position2D) {
-        const {getUnits, getReachablePositionsForAction} = this
+    previewAction = (action: Action, p: Position2D): ActionResult => {
+        const {computeTrajectory, getUnits, getState, getReachablePositionsForAction} = this
 
         // Verify that the action can be triggered
         if (!isAccessible(p, getReachablePositionsForAction(action))) {
             throw new Error("Action impossible: target not in range")
         }
 
-        const targets = getUnits([p])
-        targets.map(this.getStates).forEach(states => {
-            const lastState = last(states)
-            const newState = action.modify(lastState)
-            states.push(newState)
+        const trajectory = computeTrajectory(action, p)
+        const newStates = new Map<Unit, UnitState>()
+        if (trajectory.reachTarget) {
+            getUnits([p])
+                .forEach(unit => newStates.set(unit, action.modify(getState(unit))))
+        }
+        return {newStates, trajectory}
+    }
+
+    private computeTrajectory = (action: Action, p: Position2D) => {
+        const {worldMap, getState, getPosition3D, computeIntermediatePoints} = this
+
+        const p0 = getState(action.source).position
+        const p1 = getPosition3D(p)
+        const constraints = computeIntermediatePoints(action.source, p1, 3)
+            .map((i) => ({
+                x: worldMap.distanceBetween(p0, i),
+                y: i.y - p0.y
+            }))
+
+        return new ProjectileMotion({
+            p1: {x: worldMap.distanceBetween(p0, p1), y: p1.y - p0.y},
+            alpha: {min: Math.PI / 6, max: Math.PI * 7 / 16, divisions: 5},
+            v0Max: Math.sqrt(GRAVITATIONAL_FORCE_EQUIVALENT * action.range.max),
+            constraints
         })
-        console.log(targets.map(this.getState))
+    }
+
+    executeAction = (action: Action, p: Position2D) => {
+        const {previewAction, getStates} = this
+        previewAction(action, p).newStates.forEach((newState, unit) => getStates(unit).push(newState))
     }
 
     private getPosition3D = ({x, z}: Position2D) => ({
@@ -155,4 +180,19 @@ export class World {
     private unitStates = () => Array.from(this.unitsState.values())
 
     private getUnitPositions = () => this.unitStates().map(states => last(states).position)
+
+    computeIntermediatePoints = (unit: Unit, p1: Position3D, subdivisions: number) => {
+        const p0 = this.getState(unit).position
+        const delta = Math.max(Math.abs(p1.z - p0.z), Math.abs(p1.x - p0.x))
+        const dx = (p1.x - p0.x) / delta, dz = (p1.z - p0.z) / delta
+        const conditions = []
+        for (let i = 1; i < delta * subdivisions; i++) {
+            const x = p0.x + i * dx / subdivisions
+            const z = p0.z + i * dz / subdivisions
+            const y = this.worldMap.getHeight(Math.round(x), Math.round((z)))
+            console.log(x, y, z)
+            conditions.push({x, y, z})
+        }
+        return conditions
+    }
 }

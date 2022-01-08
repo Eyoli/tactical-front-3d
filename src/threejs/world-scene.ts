@@ -9,8 +9,8 @@ type VoxelWorldOptions = {
     world: World,
     textureInfos: TextureInfos
 }
-type SelectionMode = 'move' | 'attack'
-type WorldEvent = 'select' | 'unselect'
+type SelectionMode = 'move' | 'attack' | 'preview'
+type WorldEvent = 'select' | 'unselect' | 'preview'
 type WorldEventCallback = (...args: any) => void
 
 const neighborOffsets = [
@@ -29,13 +29,14 @@ export class WorldScene {
     private readonly textureInfos: TextureInfos
     private readonly chunkIdToMesh: Map<string, Mesh<BufferGeometry, Material>> = new Map()
     private readonly unitsToMesh: Map<Unit, UnitView> = new Map<Unit, UnitView>()
-    private _selectedUnit?: UnitView
-    private _selectedAction?: Action
     private readonly rangeView: RangeView
     readonly parent: Group
     private readonly unitLayer: Group
     private trajectoryView: TrajectoryView
     private _callbacks: Map<WorldEvent, WorldEventCallback> = new Map()
+
+    private _selectedUnit?: UnitView
+    private _selectedAction?: Action
     private _mode?: SelectionMode
 
     constructor({world, textureInfos}: VoxelWorldOptions) {
@@ -49,7 +50,7 @@ export class WorldScene {
         this.parent.add(this.unitLayer)
 
         this.rangeView = new RangeView(this.parent)
-        this.trajectoryView = new TrajectoryView()
+        this.trajectoryView = new TrajectoryView(world)
     }
 
     getChunkMesh = (x: number, y: number, z: number): Mesh<BufferGeometry, Material> | undefined => {
@@ -103,7 +104,10 @@ export class WorldScene {
         })
     }
 
-    update = (time: number) => Array.from(this.unitsToMesh.values()).forEach(unitView => unitView.update(time))
+    update = (time: number) => {
+        Array.from(this.unitsToMesh.values()).forEach(unitView => unitView.update(time))
+        this.trajectoryView.update(time)
+    }
 
     getUnitMesh = (uuid: string): UnitView | undefined => Array.from(this.unitsToMesh.values()).find((unitMesh) => unitMesh.childrenIds.indexOf(uuid) > 0)
 
@@ -137,14 +141,41 @@ export class WorldScene {
     }
 
 
-    private handleUnitAction = (target: UnitView) => {
-        const {world, _callbacks, rangeView, _selectedUnit, _selectedAction, select, trajectoryView} = this
+    private previewUnitAction = (target: UnitView) => {
+        const {world, _callbacks, rangeView, _selectedUnit, _selectedAction, trajectoryView} = this
         const p = world.getPosition(target.unit)
 
         if (!_selectedUnit) return
         if (!_selectedAction) return
 
-        trajectoryView.draw(_selectedUnit, target.mesh)
+        const actionResult = world.previewAction(_selectedAction, p)
+
+        console.log("Action previewed", _selectedAction, p)
+
+        const state = world.getState(_selectedUnit.unit)
+        const callback = _callbacks.get('preview')
+        if (callback && state) {
+            callback(_selectedUnit.unit, actionResult.newStates.forEach((newState, unit) => ({
+                state: world.getState(unit),
+                newState,
+                unit
+            })))
+        }
+
+        _selectedAction.trajectory && trajectoryView.draw(_selectedUnit, target.mesh, actionResult.trajectory)
+        rangeView.clear()
+        rangeView.draw(_selectedUnit, [state.position])
+        rangeView.draw(target, [world.getState(target.unit).position])
+
+        this._mode = "preview"
+    }
+
+    private executeUnitAction = (target: UnitView) => {
+        const {world, _callbacks, rangeView, trajectoryView, _selectedUnit, _selectedAction, select} = this
+        const p = world.getPosition(target.unit)
+
+        if (!_selectedUnit) return
+        if (!_selectedAction) return
 
         world.executeAction(_selectedAction, p)
 
@@ -157,6 +188,7 @@ export class WorldScene {
         }
 
         rangeView.clear()
+        trajectoryView.launchProjectile()
         select(_selectedUnit)
     }
 
@@ -225,6 +257,7 @@ export class WorldScene {
     private unselect = () => {
         this._selectedUnit = undefined
         this._selectedAction = undefined
+        this.trajectoryView.clear()
         this.rangeView.clear()
         const callback = this._callbacks.get('unselect')
         callback && callback()
@@ -235,9 +268,11 @@ export class WorldScene {
             world,
             _mode,
             _selectedUnit,
+            trajectoryView,
             select,
             unselect,
-            handleUnitAction,
+            previewUnitAction,
+            executeUnitAction,
             getUnitMesh,
             handleUnitMove
         } = this
@@ -247,12 +282,15 @@ export class WorldScene {
                 if (_selectedUnit === unitView) {
                     unselect()
                 } else if (_mode === "attack") {
-                    handleUnitAction(unitView)
+                    previewUnitAction(unitView)
+                } else if (_mode === "preview") {
+                    executeUnitAction(unitView)
                 }
             } else {
                 select(unitView)
             }
         } else if (_mode === "move" && intersects.length > 0 && _selectedUnit?.isMoving) {
+            trajectoryView.clear()
             const p = world.getClosestPosition({x: intersects[0].point.x, z: intersects[0].point.z})
             handleUnitMove(p)
         }
