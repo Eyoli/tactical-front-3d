@@ -1,25 +1,18 @@
 type Matrix = number[][]
 
-const N = 8
-const RANDOM_INITIAL_RANGE = 10
-const MATRIX_LENGTH = Math.pow(2, N) + 1
-
 function randomInRange(min: number, max: number) {
     return Math.floor(Math.random() * (max - min + 1) + min)
 }
 
-function generateMatrix(): Matrix {
-    const matrix = new Array(MATRIX_LENGTH)
+function generateMatrix(size: number, meanLevel: number, randomFactor: number): Matrix {
+    const matrix = new Array(size)
         .fill(0)
-        .map(() => new Array(MATRIX_LENGTH).fill(null))
+        .map(() => new Array(size).fill(null))
 
-    matrix[0][MATRIX_LENGTH - 1] = randomInRange(0, RANDOM_INITIAL_RANGE)
-    matrix[MATRIX_LENGTH - 1][0] = randomInRange(0, RANDOM_INITIAL_RANGE)
-    matrix[0][0] = randomInRange(0, RANDOM_INITIAL_RANGE)
-    matrix[MATRIX_LENGTH - 1][MATRIX_LENGTH - 1] = randomInRange(
-        0,
-        RANDOM_INITIAL_RANGE
-    )
+    matrix[0][size - 1] = randomInRange(meanLevel - randomFactor, meanLevel + randomFactor)
+    matrix[size - 1][0] = randomInRange(meanLevel - randomFactor, meanLevel + randomFactor)
+    matrix[0][0] = randomInRange(meanLevel - randomFactor, meanLevel + randomFactor)
+    matrix[size - 1][size - 1] = randomInRange(meanLevel - randomFactor, meanLevel + randomFactor)
 
     return matrix
 }
@@ -35,7 +28,7 @@ function calculateSquare(matrix: Matrix, chunkSize: number, randomFactor: number
                 : null
             const TOP_LEFT = matrix[j][i]
             const TOP_RIGHT = matrix[j][i + chunkSize]
-            const { count, sum } = [
+            const {count, sum} = [
                 BOTTOM_RIGHT,
                 BOTTOM_LEFT,
                 TOP_LEFT,
@@ -48,7 +41,7 @@ function calculateSquare(matrix: Matrix, chunkSize: number, randomFactor: number
                     }
                     return result
                 },
-                { sum: 0, count: 0 }
+                {sum: 0, count: 0}
             )
             matrix[j + chunkSize / 2][i + chunkSize / 2] =
                 sum / count + randomInRange(-randomFactor, randomFactor)
@@ -64,7 +57,7 @@ function calculateDiamond(matrix: Matrix, chunkSize: number, randomFactor: numbe
             const LEFT = matrix[y][x - half]
             const TOP = matrix[y - half] ? matrix[y - half][x] : null
             const RIGHT = matrix[y][x + half]
-            const { count, sum } = [BOTTOM, LEFT, TOP, RIGHT].reduce(
+            const {count, sum} = [BOTTOM, LEFT, TOP, RIGHT].reduce(
                 (result, value) => {
                     if (value != null && isFinite(value)) {
                         result.sum += value
@@ -72,7 +65,7 @@ function calculateDiamond(matrix: Matrix, chunkSize: number, randomFactor: numbe
                     }
                     return result
                 },
-                { sum: 0, count: 0 }
+                {sum: 0, count: 0}
             )
             matrix[y][x] = sum / count + randomInRange(-randomFactor, randomFactor)
         }
@@ -80,9 +73,8 @@ function calculateDiamond(matrix: Matrix, chunkSize: number, randomFactor: numbe
     return matrix
 }
 
-function diamondSquare(matrix: Matrix) {
-    let chunkSize = MATRIX_LENGTH - 1
-    let randomFactor = RANDOM_INITIAL_RANGE
+function diamondSquare(matrix: Matrix, randomFactor: number) {
+    let chunkSize = matrix.length - 1
 
     while (chunkSize > 1) {
         calculateSquare(matrix, chunkSize, randomFactor)
@@ -104,15 +96,15 @@ function normalizeMatrix(matrix: Matrix): Matrix {
     })
 }
 
-export const generateTerrain = (length: number, width: number, maxHeight: number, minHeight: number = 0) => {
-    const normalizedMatrix = normalizeMatrix(diamondSquare(generateMatrix()))
+export const generateTerrain = (length: number, width: number, meanLevel: number, initRandomFactor: number, randomFactor: number) => {
+    const normalizedMatrix = diamondSquare(generateMatrix(Math.pow(2, 4) + 1, meanLevel, initRandomFactor), randomFactor)
     const matrix: Matrix = []
     for (let i = 0; i < length; i++) {
         matrix[i] = []
         for (let j = 0; j < width; j++) {
             const x = Math.floor(i * normalizedMatrix.length / length)
             const y = Math.floor(j * normalizedMatrix[x].length / width)
-            matrix[i][j] = minHeight + normalizedMatrix[x][y] * (maxHeight - minHeight)
+            matrix[i][j] = normalizedMatrix[x][y]
         }
     }
     return matrix

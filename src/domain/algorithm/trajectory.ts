@@ -39,7 +39,7 @@ export class ProjectileMotion {
 
         // Check if there is a possible trajectory
         let i = 0, valid = false
-        while (!valid && i < 5) {
+        while (!valid && i < alpha.divisions) {
             valid = Math.tan(alphas[i]) > H / R
             i++
         }
@@ -58,7 +58,7 @@ export class ProjectileMotion {
                 return yc > y
             }) ?? []
             i++
-        } while (!constraintsCheck.every(b => b) && i < 5)
+        } while (!constraintsCheck.every(b => b) && i < alpha.divisions)
         const firstFailed = constraintsCheck.findIndex(b => !b)
         if (firstFailed > -1) {
             this.T = (constraints[firstFailed].x - x0) / this.V0x

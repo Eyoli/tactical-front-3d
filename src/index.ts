@@ -23,7 +23,7 @@ function main() {
     const canvas = renderer.domElement
     document.body.append(canvas)
 
-    const cellSize = 15
+    const cellSize = 16
 
     // Texture
     const textureInfos = loadMinimalTexture(render)
@@ -45,8 +45,7 @@ function main() {
     const worldGenerator = new BasicWorldMapGenerator(
         cellSize,
         cellSize,
-        8,
-        1
+        8
     )
     worldGenerator.generate(worldMap)
     const player1: Player = {id: 1, name: "P1", color: '#ff0000'}

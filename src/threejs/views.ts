@@ -59,7 +59,7 @@ export class TrajectoryView {
     private group: Group = new Group()
     private vectors?: Vector3[]
     private launch?: AnimationAction
-    private pNb = 50
+    private pNb = 30
     private trajectory?: ProjectileMotion
     private readonly world: World
 
