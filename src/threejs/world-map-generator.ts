@@ -1,10 +1,6 @@
 import {generateTerrain} from "../domain/algorithm/diamond-square"
 import {WorldMap} from "../domain/model/world-map"
 
-const randInt = (min: number, max: number) => {
-    return Math.floor(Math.random() * (max - min) + min)
-}
-
 export interface WorldMapGenerator {
     generate: (worldMap: WorldMap) => void
 }
@@ -25,7 +21,7 @@ export class BasicWorldMapGenerator implements WorldMapGenerator {
 
     generate(worldMap: WorldMap, dx: number = 0, dy: number = 0, dz: number = 0): void {
         const {length, width, maxHeight} = this
-        const heightmap = generateTerrain(length, width, 1, 3, 3)
+        const heightmap = generateTerrain(length, width, 3, 3, 3)
         console.log(heightmap)
         for (let y = 0; y < maxHeight; ++y) {
             for (let z = 0; z < width; ++z) {

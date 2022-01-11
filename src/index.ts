@@ -1,15 +1,16 @@
 import {ACESFilmicToneMapping, PerspectiveCamera, PMREMGenerator, WebGLRenderer} from 'three'
-import {WorldScene} from './threejs/world-scene'
+import {GameScene} from './threejs/game-scene'
 import {MainScene} from "./threejs/main-scene"
 import {BasicWorldMapGenerator} from "./threejs/world-map-generator"
 import {stats} from "./monitoring/stats"
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
-import {World} from "./domain/model/world"
+import {Game} from "./domain/model/game"
 import {loadMinimalTexture} from "./threejs/textures"
 import {WorldMap} from "./domain/model/world-map"
 import {Player, Unit, UnitState} from "./domain/model/types"
 import GUI from "lil-gui"
 import {BOW} from "./domain/model/weapons"
+import {UnitView} from "./threejs/units"
 
 function main() {
     const renderer = new WebGLRenderer()
@@ -50,19 +51,20 @@ function main() {
     worldGenerator.generate(worldMap)
     const player1: Player = {id: 1, name: "P1", color: '#ff0000'}
     const player2: Player = {id: 2, name: "P2", color: '#00ff00'}
-    const world = new World(worldMap)
+    const game = new Game(worldMap)
         .addPlayers(player1, player2)
         .addUnits([new Unit({id: 1, name: "Knight", moves: 5, jump: 1, hp: 10})], {x: 1, z: 1}, player1)
         .addUnits([new Unit({id: 2, name: "Archer", moves: 7, jump: 2, hp: 10, weapon: BOW(3, 10, 1)})], {
             x: 5,
             z: 5
         }, player2)
-    const worldScene = new WorldScene({
-        world,
+        .start()
+    const gameScene = new GameScene({
+        game: game,
         textureInfos
     })
 
-    const mainScene = new MainScene(worldScene, camera, controls)
+    const mainScene = new MainScene(gameScene, camera, controls)
     mainScene.addWater()
     mainScene.addSky(10, renderer, pmremGenerator)
 
@@ -70,13 +72,18 @@ function main() {
     mainScene.generateChunk(0, 0, 0)
     // manager.generateVoxelGeometry(32, 0, 0)
 
-    let unitGUI: GUI | undefined
-    const drawUnitGUI = (unit: Unit, state: UnitState) => {
+    const gameGUI = new GUI({title: "Game"})
+    gameGUI.add(gameScene, 'endTurn').name('End turn')
+
+    const drawUnitGUI = (unitView: UnitView, state: UnitState) => {
+        const unit = unitView?.unit
+        console.log('Update unit state', unit, state)
+        let unitGUI = gameGUI.folders.shift()
         if (unitGUI) {
             unitGUI.destroy()
         }
         if (unit) {
-            unitGUI = new GUI({title: unit.name})
+            unitGUI = gameGUI.addFolder(unit.name)
             unitGUI.add(unit, 'jump')
             unitGUI.add(unit, 'moves')
             unitGUI.add(state, 'hp')
@@ -84,12 +91,12 @@ function main() {
             unitGUI.add(state.position, 'y')
             unitGUI.add(state.position, 'z')
             const actions = unitGUI.addFolder("Actions")
-            actions.add(worldScene, 'moveMode').name('Move')
-            actions.add(worldScene, 'attackMode').name('Attack')
+            state.canMove && actions.add(gameScene, 'moveMode').name('Move')
+            state.canAct && actions.add(gameScene, 'attackMode').name('Attack')
         }
     }
-    worldScene.on('select', drawUnitGUI)
-    worldScene.on('unselect', drawUnitGUI)
+    gameScene.on('select', drawUnitGUI)
+    gameScene.on('unselect', drawUnitGUI)
 
     function render() {
         requestAnimationFrame(render)

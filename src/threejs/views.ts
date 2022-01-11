@@ -16,7 +16,7 @@ import {
 import {UnitView} from "./units"
 import {ProjectileMotion} from "../domain/algorithm/trajectory"
 import {LoopOnce} from "three/src/constants"
-import {World} from "../domain/model/world"
+import {Game} from "../domain/model/game"
 
 const createTileSelectionMesh = (color: string, p: Position3D): Mesh => {
     const mesh = new Mesh(new BoxGeometry(1, 0.1, 1), new MeshStandardMaterial({
@@ -61,10 +61,10 @@ export class TrajectoryView {
     private launch?: AnimationAction
     private pNb = 30
     private trajectory?: ProjectileMotion
-    private readonly world: World
+    private readonly game: Game
 
-    constructor(world: World) {
-        this.world = world
+    constructor(game: Game) {
+        this.game = game
     }
 
     draw = (source: UnitView, target: Object3D, trajectory: ProjectileMotion) => {

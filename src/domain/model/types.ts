@@ -45,24 +45,51 @@ export type Player = {
     color: string
 }
 
-export class UnitState {
-    readonly position: Position3D
+type UnitStateProps = {
     readonly hp: number
+    readonly position: Position3D
+    readonly canMove: boolean
+    readonly canAct: boolean
+}
 
-    private constructor(hp: number, position: Position3D) {
-        this.position = position
+export class UnitState {
+    readonly hp: number
+    readonly position: Position3D
+    readonly canMove: boolean
+    readonly canAct: boolean
+
+    private constructor({hp, position, canMove, canAct}: UnitStateProps) {
         this.hp = hp
+        this.position = position
+        this.canMove = canMove
+        this.canAct = canAct
     }
 
-    static init = (unit: Unit, position: Position3D) => new UnitState(unit.hp, position)
+    static init = (unit: Unit, position: Position3D) => new UnitState({
+        hp: unit.hp,
+        position,
+        canMove: false,
+        canAct: false
+    })
 
-    to(position: Position3D) {
-        return new UnitState(this.hp, position)
-    }
+    moveTo = (position: Position3D) => new UnitState({hp: this.hp, position, canMove: false, canAct: this.canAct})
 
-    modify(dhp: number) {
-        return new UnitState(this.hp + dhp, this.position)
-    }
+    act = () => new UnitState({hp: this.hp, position: this.position, canMove: this.canMove, canAct: false})
+
+    modify = (dhp: number) => new UnitState({
+        hp: this.hp + dhp,
+        position: this.position,
+        canMove: this.canMove,
+        canAct: this.canAct
+    })
+
+    startTurn = () => new UnitState({hp: this.hp, position: this.position, canMove: true, canAct: true})
+
+    endTurn = () => new UnitState({hp: this.hp, position: this.position, canMove: false, canAct: false})
+}
+
+export type Turn = {
+    index: number
 }
 
 export interface Action {
@@ -95,5 +122,5 @@ export class AttackAction implements Action {
 
 export type ActionResult = {
     newStates: Map<Unit, UnitState>
-    trajectory: ProjectileMotion
+    trajectory?: ProjectileMotion
 }

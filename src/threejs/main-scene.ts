@@ -12,7 +12,7 @@ import {
     WebGLRenderer
 } from "three"
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
-import {WorldScene} from "./world-scene"
+import {GameScene} from "./game-scene"
 import {Water} from "three/examples/jsm/objects/Water"
 import {Sky} from "three/examples/jsm/objects/Sky"
 
@@ -20,7 +20,7 @@ const clock = new Clock()
 
 
 export class MainScene {
-    private readonly worldScene: WorldScene
+    private readonly gameScene: GameScene
     readonly scene: Scene
     readonly camera: PerspectiveCamera
     private readonly controls: OrbitControls
@@ -41,13 +41,13 @@ export class MainScene {
     private sun?: Vector3
 
     constructor(
-        worldScene: WorldScene,
+        gameScene: GameScene,
         camera: PerspectiveCamera,
         controls: OrbitControls) {
-        this.worldScene = worldScene
+        this.gameScene = gameScene
 
         const scene = new Scene()
-        scene.add((worldScene.parent))
+        scene.add((gameScene.parent))
 
         this.scene = scene
         this.camera = camera
@@ -114,8 +114,8 @@ export class MainScene {
     }
 
     generateChunk = (x: number, y: number, z: number) => {
-        this.worldScene.generateChunk(x, y, z)
-        this.worldScene.generateUnits()
+        this.gameScene.generateChunk(x, y, z)
+        this.gameScene.generateUnits()
     }
 
     render(renderer: WebGLRenderer) {
@@ -127,7 +127,7 @@ export class MainScene {
             // this.updateSky(renderer)
         }
 
-        this.worldScene.update(delta)
+        this.gameScene.update(delta)
         this.controls.update()
         renderer.render(this.scene, this.camera)
     }
@@ -138,7 +138,7 @@ export class MainScene {
             return
         }
 
-        const {scene, camera, raycaster, worldScene} = this
+        const {scene, camera, raycaster, gameScene} = this
         // 1. sets the mouse position with a coordinate system where the center
         //   of the screen is the origin
         const mouse = {
@@ -161,7 +161,7 @@ export class MainScene {
                     - point : intersection point (THREE.Vector3)
                     - uv : intersection point in the object's UV coordinates (THREE.Vector2)
             */
-            worldScene.handleLeftClick(intersects)
+            gameScene.handleLeftClick(intersects)
         }
     }
 }

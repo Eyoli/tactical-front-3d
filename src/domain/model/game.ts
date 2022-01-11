@@ -2,8 +2,15 @@ import {EdgeFilter} from "../algorithm/path-finder"
 import {WorldMapService} from "../service/services"
 import {WorldMap} from "./world-map"
 import Immutable from "immutable"
-import {Action, ActionResult, Player, Position2D, Position3D, Unit, UnitState} from "./types"
+import {Action, ActionResult, Player, Position2D, Position3D, Turn, Unit, UnitState} from "./types"
 import {GRAVITATIONAL_FORCE_EQUIVALENT, ProjectileMotion} from "../algorithm/trajectory"
+import {
+    ACTION_CANNOT_REACH_TARGET,
+    PLAYER_NOT_ADDED_BEFORE_UNIT,
+    UNIT_CANNOT_MOVE,
+    UNIT_CANNOT_REACH_POSITION,
+    UNIT_WITHOUT_STATE
+} from "./errors"
 
 const edgeFilter = (vMax: number, occupied: Position3D[]): EdgeFilter<Position3D> => (p1, p2) => !occupied.find(p => p.x === p2.x && p.z === p2.z)
     && Math.abs(p2.y - p1.y) <= vMax
@@ -14,11 +21,12 @@ const isAccessible = (p2D: Position2D, p3Ds: Position3D[]) => p3Ds.find(p => p.x
 
 const worldMapService: WorldMapService<Position3D, number> = new WorldMapService()
 
-export class World {
+export class Game {
     private readonly _units: Unit[] = []
     private readonly _players: Player[] = []
     private readonly _playersUnits = new Map<Player, Unit[]>()
     private readonly unitsState = new Map<Unit, UnitState[]>()
+    private turn: Turn = {index: 0}
 
     readonly worldMap: WorldMap
 
@@ -44,7 +52,7 @@ export class World {
         const {_playersUnits, _units, unitsState, getPosition3D} = this
         const playerUnits = _playersUnits.get(player)
         if (!playerUnits) {
-            throw new Error("Add the player before adding a unit")
+            throw new Error(PLAYER_NOT_ADDED_BEFORE_UNIT)
         }
 
         _units.push(...newUnits)
@@ -54,22 +62,35 @@ export class World {
         return this
     }
 
+    start = () => {
+        const activeUnit = this.getActiveUnit()
+        const firstState = this.getState(activeUnit)
+        this.getStates(activeUnit).shift()
+        this.getStates(activeUnit).push(firstState.startTurn())
+        return this
+    }
+
     moveUnit = (unit: Unit, p: Position2D) => {
         const {getReachablePositions, getPosition, getPosition3D, getState} = this
+
+        // Verify that the unit can move
+        if (!getState(unit).canMove) {
+            throw new Error(UNIT_CANNOT_MOVE)
+        }
 
         const from = getPosition(unit)
         const to = getPosition3D(p)
 
         // Verify that the position can be accessed
         if (!isAccessible(p, getReachablePositions(unit))) {
-            throw new Error("Impossible to move unit")
+            throw new Error(UNIT_CANNOT_REACH_POSITION)
         }
 
         const pathFinder = worldMapService.getShortestPath(this.worldMap, from, to, edgeFilter(unit.jump, this.getUnitPositions()))
         const result = pathFinder.find()
         if (result.path) {
             const lastState = getState(unit)
-            this.unitsState.get(unit)?.push(lastState.to(to))
+            this.unitsState.get(unit)?.push(lastState.moveTo(to))
         }
         return result.path
     }
@@ -129,12 +150,13 @@ export class World {
 
         // Verify that the action can be triggered
         if (!isAccessible(p, getReachablePositionsForAction(action))) {
-            throw new Error("Action impossible: target not in range")
+            throw new Error(ACTION_CANNOT_REACH_TARGET)
         }
 
         const trajectory = computeTrajectory(action, p)
+        const reachTarget = !trajectory || trajectory.reachTarget
         const newStates = new Map<Unit, UnitState>()
-        if (trajectory.reachTarget) {
+        if (reachTarget) {
             getUnits([p])
                 .forEach(unit => newStates.set(unit, action.modify(getState(unit))))
         }
@@ -143,6 +165,8 @@ export class World {
 
     private computeTrajectory = (action: Action, p: Position2D) => {
         const {worldMap, getState, getPosition3D, computeIntermediatePoints} = this
+
+        if (!action.trajectory) return undefined
 
         const p0 = getState(action.source).position
         const p1 = getPosition3D(p)
@@ -161,8 +185,9 @@ export class World {
     }
 
     executeAction = (action: Action, p: Position2D) => {
-        const {previewAction, getStates} = this
+        const {previewAction, getStates, getState} = this
         previewAction(action, p).newStates.forEach((newState, unit) => getStates(unit).push(newState))
+        getStates(action.source).push(getState(action.source).act())
     }
 
     private getPosition3D = ({x, z}: Position2D) => ({
@@ -173,7 +198,7 @@ export class World {
 
     private getStates = (unit: Unit): UnitState[] => {
         const states = this.unitsState.get(unit)
-        if (!states) throw new Error(`Unit (id=${unit.id}) without state`)
+        if (!states) throw new Error(UNIT_WITHOUT_STATE(unit))
         return states
     }
 
@@ -181,18 +206,27 @@ export class World {
 
     private getUnitPositions = () => this.unitStates().map(states => last(states).position)
 
+    private getActiveUnit = () => this._units[this.turn.index]
+
     computeIntermediatePoints = (unit: Unit, p1: Position3D, subdivisions: number) => {
         const p0 = this.getState(unit).position
         const delta = Math.max(Math.abs(p1.z - p0.z), Math.abs(p1.x - p0.x))
         const dx = (p1.x - p0.x) / delta, dz = (p1.z - p0.z) / delta
-        const conditions = []
+        const points = []
         for (let i = 1; i < delta * subdivisions; i++) {
             const x = p0.x + i * dx / subdivisions
             const z = p0.z + i * dz / subdivisions
             const y = this.worldMap.getHeight(Math.round(x), Math.round((z)))
-            console.log(x, y, z)
-            conditions.push({x, y, z})
+            points.push({x, y, z})
         }
-        return conditions
+        return points
+    }
+
+    endTurn = () => {
+        const activeUnit = this.getActiveUnit()
+        this.getStates(activeUnit).push(this.getState(activeUnit).endTurn())
+        this.turn = {index: (this.turn.index + 1) % this._units.length}
+        const newActiveUnit = this.getActiveUnit()
+        this.getStates(newActiveUnit).push(this.getState(newActiveUnit).startTurn())
     }
 }
