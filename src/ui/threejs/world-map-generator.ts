@@ -1,5 +1,5 @@
-import {generateTerrain} from "../domain/algorithm/diamond-square"
-import {WorldMap} from "../domain/model/world-map"
+import {generateTerrain} from "../../domain/algorithm/diamond-square"
+import {WorldMap} from "../../domain/model/world-map"
 
 export interface WorldMapGenerator {
     generate: (worldMap: WorldMap) => void
@@ -21,8 +21,7 @@ export class BasicWorldMapGenerator implements WorldMapGenerator {
 
     generate(worldMap: WorldMap, dx: number = 0, dy: number = 0, dz: number = 0): void {
         const {length, width, maxHeight} = this
-        const heightmap = generateTerrain(length, width, 3, 3, 3)
-        console.log(heightmap)
+        const heightmap = generateTerrain(length, width, 3, 2, 1)
         for (let y = 0; y < maxHeight; ++y) {
             for (let z = 0; z < width; ++z) {
                 for (let x = 0; x < length; ++x) {

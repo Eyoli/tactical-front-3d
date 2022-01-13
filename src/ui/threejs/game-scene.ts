@@ -1,8 +1,8 @@
 import {BufferGeometry, Group, Intersection, Material, Mesh} from "three"
-import {Action, AttackAction, Position2D, Unit} from "../domain/model/types"
+import {Action, AttackAction, Position2D, Unit} from "../../domain/model/types"
 import {initUnit, UnitView} from "./units"
 import {TextureInfos, updateChunkGeometry} from "./textures"
-import {Game} from "../domain/model/game"
+import {Game} from "../../domain/model/game"
 import {RangeView, TrajectoryView} from "./views"
 
 type GameSceneProps = {
@@ -89,7 +89,7 @@ export class GameScene {
     }
 
     generateUnits = () => {
-        const {unitLayer, game, unitsToMesh} = this
+        const {unitLayer, game, unitsToMesh, select} = this
         game.playersUnits.forEach((units, player) => {
             units.forEach(unit => {
                 const p = game.getPosition(unit)
@@ -101,6 +101,9 @@ export class GameScene {
                 }
             })
         })
+
+        const activeUnit = unitsToMesh.get(game.getActiveUnit())
+        activeUnit && select(activeUnit)
     }
 
     update = (time: number) => {
@@ -240,8 +243,10 @@ export class GameScene {
     }
 
     endTurn = () => {
-        this.game.endTurn()
-        this.unselect()
+        const {game, unitsToMesh, select} = this
+        game.endTurn()
+        const activeUnit = unitsToMesh.get(game.getActiveUnit())
+        activeUnit && select(activeUnit)
     }
 
     private select = (unitView: UnitView) => {

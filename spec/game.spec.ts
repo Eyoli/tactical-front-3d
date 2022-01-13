@@ -1,4 +1,4 @@
-import {Game} from "../src/domain/model/game"
+import {GameBuilder} from "../src/domain/model/game"
 import {AttackAction, Player, Unit} from "../src/domain/model/types"
 import {WorldMapService} from "../src/domain/service/services"
 import {WorldMap} from "../src/domain/model/world-map"
@@ -25,10 +25,10 @@ const aGameWithFlatWorldAndTwoPlayers = () => {
     const worldMap = initWorldMap(3, [[1, 1, 1], [1, 1, 1], [1, 1, 1]])
     const player1: Player = {id: 1, name: "P1", color: '#ff0000'}
     const player2: Player = {id: 1, name: "P2", color: '#00ff00'}
-    return new Game(worldMap)
+    return new GameBuilder(worldMap)
         .addPlayers(player1, player2)
-        .addUnits([aUnit()], {x: 1, z: 1}, player1)
-        .addUnits([aUnit()], {x: 1, z: 2}, player2)
+        .addUnit(aUnit(), {x: 1, z: 1}, player1)
+        .addUnit(aUnit(), {x: 1, z: 2}, player2)
         .start()
 }
 
@@ -46,9 +46,9 @@ describe('game', () => {
     it('should select a unit and move it', () => {
         const worldMap = initWorldMap(10)
         const player: Player = {id: 1, name: "P1", color: '#ff0000'}
-        const game = new Game(worldMap)
+        const game = new GameBuilder(worldMap)
             .addPlayers(player)
-            .addUnits([aUnit()], {x: 1, z: 1}, player)
+            .addUnit(aUnit(), {x: 1, z: 1}, player)
             .start()
 
         game.moveUnit(game.units[0], {x: 1, z: 2})
@@ -61,10 +61,10 @@ describe('game', () => {
     it('should take into account forbidden positions', () => {
         const worldMap = initWorldMap(3, [[1, 1, 1], [2, 0, 1], [1, 1, 1]])
         const player: Player = {id: 1, name: "P1", color: '#ff0000'}
-        const game = new Game(worldMap)
+        const game = new GameBuilder(worldMap)
             .addPlayers(player)
-            .addUnits([aUnit()], {x: 1, z: 1}, player)
-            .addUnits([aUnit()], {x: 0, z: 1}, player)
+            .addUnit(aUnit(), {x: 1, z: 1}, player)
+            .addUnit(aUnit(), {x: 0, z: 1}, player)
             .start()
 
         const positions = game.getReachablePositions(game.units[0])
@@ -75,9 +75,9 @@ describe('game', () => {
     it('should get reachable positions for a given unit', () => {
         const worldMap = initWorldMap(3, [[1, 1, 1], [2, 0, 1], [1, 1, 1]])
         const player: Player = {id: 1, name: "P1", color: '#ff0000'}
-        const game = new Game(worldMap)
+        const game = new GameBuilder(worldMap)
             .addPlayers(player)
-            .addUnits([aUnit()], {x: 1, z: 1}, player)
+            .addUnit(aUnit(), {x: 1, z: 1}, player)
             .start()
 
         const positions = game.getReachablePositions(game.units[0])
@@ -91,9 +91,9 @@ describe('game', () => {
     it('should get reachable positions for a given action', () => {
         const worldMap = initWorldMap(3, [[0, 1, 1], [2, 0, 1], [1, 1, 1]])
         const player: Player = {id: 1, name: "P1", color: '#ff0000'}
-        const game = new Game(worldMap)
+        const game = new GameBuilder(worldMap)
             .addPlayers(player)
-            .addUnits([aUnit()], {x: 1, z: 1}, player)
+            .addUnit(aUnit(), {x: 1, z: 1}, player)
             .start()
 
         const positions = game.getReachablePositionsForAction(new AttackAction(game.units[0]))

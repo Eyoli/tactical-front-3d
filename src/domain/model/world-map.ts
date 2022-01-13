@@ -1,5 +1,5 @@
 import {Graph} from "../algorithm/path-finder"
-import {Position3D} from "./types"
+import {Position2D, Position3D} from "./types"
 
 export class WorldMap implements Graph<Position3D, number> {
     readonly chunkSize: number
@@ -76,6 +76,12 @@ export class WorldMap implements Graph<Position3D, number> {
         }
         return height + 1
     }
+
+    getPosition3D = ({x, z}: Position2D) => ({
+        x: x,
+        y: this.getHeight(x, z),
+        z: z
+    })
 
     computeChunkId = ({x, y, z}: Position3D) => {
         const {chunkSize} = this

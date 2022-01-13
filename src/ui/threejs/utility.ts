@@ -1,5 +1,5 @@
 import {Camera, Object3D, Vector2, Vector3} from "three"
-import {Position3D} from "../domain/model/types"
+import {Position3D} from "../../domain/model/types"
 
 export const toScreenPosition = (object: Object3D, camera: Camera, canvas: HTMLCanvasElement): Vector2 => {
     const vector = new Vector3()

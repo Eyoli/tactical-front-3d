@@ -1,4 +1,4 @@
-import {Position3D} from "../domain/model/types"
+import {Position3D} from "../../domain/model/types"
 import {
     AnimationAction,
     AnimationClip,
@@ -14,9 +14,9 @@ import {
     VectorKeyframeTrack
 } from "three"
 import {UnitView} from "./units"
-import {ProjectileMotion} from "../domain/algorithm/trajectory"
+import {ProjectileMotion} from "../../domain/algorithm/trajectory"
 import {LoopOnce} from "three/src/constants"
-import {Game} from "../domain/model/game"
+import {Game} from "../../domain/model/game"
 
 const createTileSelectionMesh = (color: string, p: Position3D): Mesh => {
     const mesh = new Mesh(new BoxGeometry(1, 0.1, 1), new MeshStandardMaterial({

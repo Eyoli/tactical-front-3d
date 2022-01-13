@@ -11,7 +11,7 @@ import {
     Vector3,
     VectorKeyframeTrack
 } from "three"
-import {Player, Position3D, Unit} from "../domain/model/types"
+import {Player, Position3D, Unit} from "../../domain/model/types"
 import {LoopOnce} from "three/src/constants"
 
 const computeChildrenIds = (mesh: Object3D) => {
