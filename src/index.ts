@@ -4,13 +4,11 @@ import {MainScene} from "./ui/threejs/main-scene"
 import {BasicWorldMapGenerator} from "./ui/threejs/world-map-generator"
 import {stats} from "./ui/monitoring/stats"
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
-import {Game, GameBuilder} from "./domain/model/game"
+import {GameBuilder} from "./domain/model/game"
 import {loadMinimalTexture} from "./ui/threejs/textures"
 import {WorldMap} from "./domain/model/world-map"
-import {Player, Unit, UnitState} from "./domain/model/types"
-import GUI from "lil-gui"
+import {Player, Unit} from "./domain/model/types"
 import {BOW} from "./domain/model/weapons"
-import {UnitView} from "./ui/threejs/units"
 import {TacticalGUI} from "./ui/gui"
 
 function main() {
@@ -67,7 +65,6 @@ function main() {
 
     const gameGUI = new TacticalGUI({title: "Game"})
     gameGUI.add(gameScene, 'endTurn').name('End turn')
-
     gameScene.on('select', (unitView, state) => gameGUI.updateSelectedUnit(gameScene, unitView, state))
     gameScene.on('unselect', (unitView, state) => gameGUI.updateSelectedUnit(gameScene, unitView, state))
 

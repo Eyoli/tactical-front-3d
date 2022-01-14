@@ -4,7 +4,8 @@ import {Position2D, Position3D} from "./types"
 export class WorldMap implements Graph<Position3D, number> {
     readonly chunkSize: number
     private readonly chunkSliceSize: number
-    private readonly chunks: Map<string, Uint8Array> = new Map()
+    private readonly chunks = new Map<string, Uint8Array>()
+    private readonly voxelCostMap = new Map<number, number>()
 
     constructor(chunkSize: number) {
         this.chunkSize = chunkSize
@@ -21,9 +22,7 @@ export class WorldMap implements Graph<Position3D, number> {
         ].filter(p => getVoxel({x: p.x, y: p.y - 1, z: p.z}) !== 0)
     }
 
-    costBetween = (p1: Position3D, p2: Position3D): number => {
-        return 1
-    }
+    costBetween = (p1: Position3D, p2: Position3D): number => this.voxelCostMap.get(this.getVoxel(p2)) ?? 1
 
     distanceBetween = ({x: x1, z: z1}: Position3D, {x: x2, z: z2}: Position3D): number => {
         return Math.sqrt((x2 - x1) * (x2 - x1) + (z2 - z1) * (z2 - z1))
@@ -51,13 +50,16 @@ export class WorldMap implements Graph<Position3D, number> {
         chunk[voxelOffset] = v
     }
 
+    fillCostMap = (map: Map<number, number>) =>
+        map.forEach((cost, voxelValue) => this.voxelCostMap.set(voxelValue, cost))
+
     getVoxel = (p: Position3D) => {
         const chunk = this.getChunk(this.computeChunkId(p))
         if (!chunk) {
             return 0
         }
-        const voxelOffset = this.getNodeKey(p)
-        return chunk[voxelOffset]
+        const voxelKey = this.getNodeKey(p)
+        return chunk[voxelKey]
     }
 
     getHeight = (x: number, z: number) => {
@@ -75,6 +77,10 @@ export class WorldMap implements Graph<Position3D, number> {
             y++
         }
         return height + 1
+    }
+
+    getClosestPosition2D = ({x, z}: Position2D): Position2D => {
+        return {x: Math.floor(x), z: Math.floor(z)}
     }
 
     getPosition3D = ({x, z}: Position2D) => ({

@@ -3,8 +3,10 @@ import {AttackAction, Player, Unit} from "../src/domain/model/types"
 import {WorldMapService} from "../src/domain/service/services"
 import {WorldMap} from "../src/domain/model/world-map"
 import {UNIT_CANNOT_MOVE} from "../src/domain/model/errors"
+import {GamePort, GameService} from "../src/domain/service/gameService"
 
-const pathFinderManager = new WorldMapService()
+const worldMapService = new WorldMapService()
+const gameService: GamePort = new GameService()
 
 const initWorldMap = (chunkSize: number, heightmap?: number[][], data?: number[][]) => {
     const worldMap = new WorldMap(chunkSize)
@@ -37,7 +39,7 @@ describe('game', () => {
     it('should find the shortest path between two locations', () => {
         const worldMap = initWorldMap(10)
 
-        const pathFinder = pathFinderManager.getShortestPath(worldMap, {x: 0, y: 1, z: 0}, {x: 5, y: 1, z: 5})
+        const pathFinder = worldMapService.getShortestPath(worldMap, {x: 0, y: 1, z: 0}, {x: 5, y: 1, z: 5})
         const result = pathFinder.find()
 
         expect(result.path?.length).toBe(11)
@@ -51,7 +53,7 @@ describe('game', () => {
             .addUnit(aUnit(), {x: 1, z: 1}, player)
             .start()
 
-        game.moveUnit(game.units[0], {x: 1, z: 2})
+        gameService.moveUnit(game, game.units[0], {x: 1, z: 2})
 
         const state = game.getState(game.units[0])
         expect(state.position).toStrictEqual({x: 1, y: 1, z: 2})
@@ -67,7 +69,7 @@ describe('game', () => {
             .addUnit(aUnit(), {x: 0, z: 1}, player)
             .start()
 
-        const positions = game.getReachablePositions(game.units[0])
+        const positions = gameService.getReachablePositions(game, game.units[0])
 
         expect(positions).not.toContainEqual({x: 0, y: 2, z: 1})
     })
@@ -80,7 +82,7 @@ describe('game', () => {
             .addUnit(aUnit(), {x: 1, z: 1}, player)
             .start()
 
-        const positions = game.getReachablePositions(game.units[0])
+        const positions = gameService.getReachablePositions(game, game.units[0])
 
         expect(positions.length).toBe(3)
         expect(positions).toContainEqual({x: 0, y: 2, z: 1})
@@ -96,7 +98,7 @@ describe('game', () => {
             .addUnit(aUnit(), {x: 1, z: 1}, player)
             .start()
 
-        const positions = game.getReachablePositionsForAction(new AttackAction(game.units[0]))
+        const positions = gameService.getReachablePositionsForAction(game, new AttackAction(game.units[0]))
 
         expect(positions.length).toBe(7)
         expect(positions).toContainEqual({x: 0, y: 1, z: 0})
@@ -111,7 +113,7 @@ describe('game', () => {
     it('should execute an action on a target', () => {
         const game = aGameWithFlatWorldAndTwoPlayers()
 
-        game.executeAction(new AttackAction(game.units[0]), {x: 1, z: 2})
+        gameService.executeAction(game, new AttackAction(game.units[0]), {x: 1, z: 2})
 
         expect(game.getState(game.units[0]).hp).toEqual(10)
         expect(game.getState(game.units[1]).hp).toEqual(9)
@@ -125,24 +127,24 @@ describe('game', () => {
         expect(game.getState(unit1).canMove).toEqual(true)
         expect(game.getState(unit2).canMove).toEqual(false)
 
-        game.moveUnit(unit1, {x: 1, z: 0})
+        gameService.moveUnit(game, unit1, {x: 1, z: 0})
         expect(game.getState(unit1).canMove).toEqual(false)
         expect(game.getState(unit2).canMove).toEqual(false)
-        expect(() => game.moveUnit(unit1, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
-        expect(() => game.moveUnit(unit2, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
+        expect(() => gameService.moveUnit(game, unit1, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
+        expect(() => gameService.moveUnit(game, unit2, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
 
-        game.endTurn()
+        game.nextTurn()
         expect(game.getState(unit1).canMove).toEqual(false)
         expect(game.getState(unit2).canMove).toEqual(true)
-        expect(() => game.moveUnit(unit1, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
+        expect(() => gameService.moveUnit(game, unit1, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
 
-        game.moveUnit(unit2, {x: 0, z: 2})
+        gameService.moveUnit(game, unit2, {x: 0, z: 2})
         expect(game.getState(unit1).canMove).toEqual(false)
         expect(game.getState(unit2).canMove).toEqual(false)
-        expect(() => game.moveUnit(unit1, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
-        expect(() => game.moveUnit(unit2, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
+        expect(() => gameService.moveUnit(game, unit1, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
+        expect(() => gameService.moveUnit(game, unit2, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
 
-        game.endTurn()
+        game.nextTurn()
         expect(game.getState(unit1).canMove).toEqual(true)
         expect(game.getState(unit2).canMove).toEqual(false)
     })

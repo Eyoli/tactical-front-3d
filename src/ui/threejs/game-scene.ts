@@ -4,6 +4,7 @@ import {initUnit, UnitView} from "./units"
 import {TextureInfos, updateChunkGeometry} from "./textures"
 import {Game} from "../../domain/model/game"
 import {RangeView, TrajectoryView} from "./views"
+import {GamePort, GameService} from "../../domain/service/gameService"
 
 type GameSceneProps = {
     game: Game,
@@ -22,6 +23,8 @@ const neighborOffsets = [
     [0, 0, -1], // back
     [0, 0, 1], // front
 ]
+
+const gameService: GamePort = new GameService()
 
 export class GameScene {
     private readonly game: Game
@@ -49,16 +52,16 @@ export class GameScene {
         this.parent.add(this.unitLayer)
 
         this.rangeView = new RangeView(this.parent)
-        this.trajectoryView = new TrajectoryView(game)
+        this.trajectoryView = new TrajectoryView()
     }
 
     getChunkMesh = (x: number, y: number, z: number): Mesh<BufferGeometry, Material> | undefined => {
-        const cellId = this.game.worldMap.computeChunkId({x, y, z})
+        const cellId = this.game.world.computeChunkId({x, y, z})
         return this.chunkIdToMesh.get(cellId)
     }
 
     createCellMesh = (x: number, y: number, z: number): Mesh<BufferGeometry, Material> => {
-        const cellId = this.game.worldMap.computeChunkId({x, y, z})
+        const cellId = this.game.world.computeChunkId({x, y, z})
         const mesh = new Mesh<BufferGeometry, Material>(new BufferGeometry(), this.textureInfos.material)
         mesh.name = cellId
         this.chunkIdToMesh.set(cellId, mesh)
@@ -66,7 +69,7 @@ export class GameScene {
     }
 
     generateChunk(x: number, y: number, z: number) {
-        const {chunkSize, getVoxel} = this.game.worldMap
+        const {chunkSize, getVoxel} = this.game.world
         const {textureInfos} = this
 
         const updatedCellIds = new Map<string, boolean>()
@@ -74,7 +77,7 @@ export class GameScene {
             const ox = x + offset[0]
             const oy = y + offset[1]
             const oz = z + offset[2]
-            const cellId = this.game.worldMap.computeChunkId({x: ox, y: oy, z: oz})
+            const cellId = this.game.world.computeChunkId({x: ox, y: oy, z: oz})
             if (!updatedCellIds.get(cellId)) {
                 updatedCellIds.set(cellId, true)
                 let chunkMesh = this.getChunkMesh(ox, oy, oz)
@@ -92,7 +95,7 @@ export class GameScene {
         const {unitLayer, game, unitsToMesh, select} = this
         game.playersUnits.forEach((units, player) => {
             units.forEach(unit => {
-                const p = game.getPosition(unit)
+                const p = gameService.getPosition(game, unit)
                 if (p) {
                     const unitMesh = initUnit(unit, p, player)
                     unitMesh.idle.play()
@@ -122,7 +125,7 @@ export class GameScene {
         }
 
         // Verify that a path exists between the locations
-        const path = game.moveUnit(unitView.unit, p)
+        const path = gameService.moveUnit(game, unitView.unit, p)
         if (!path) {
             console.log(`Impossible to move unit (id=${unitView.unit.id}) to`, p, 'no path found')
             return
@@ -144,19 +147,19 @@ export class GameScene {
 
     private previewUnitAction = (target: UnitView) => {
         const {game, _callbacks, rangeView, _selectedUnit, _selectedAction, trajectoryView} = this
-        const p = game.getPosition(target.unit)
+        const p = gameService.getPosition(game, target.unit)
 
         if (!_selectedUnit) return
         if (!_selectedAction) return
 
-        const actionResult = game.previewAction(_selectedAction, p)
+        const actionResult = gameService.previewAction(game, _selectedAction, p)
 
         console.log("Action previewed", _selectedAction, p)
 
         const state = game.getState(_selectedUnit.unit)
         const callback = _callbacks.get('preview')
         if (callback && state) {
-            callback(_selectedUnit, actionResult.newStates.forEach((newState, unit) => ({
+            callback(_selectedUnit, Array.from(actionResult.newStates.entries()).map(({0: unit, 1: newState}) => ({
                 state: game.getState(unit),
                 newState,
                 unit
@@ -173,12 +176,12 @@ export class GameScene {
 
     private executeUnitAction = (target: UnitView) => {
         const {game, _callbacks, rangeView, trajectoryView, _selectedUnit, _selectedAction, select} = this
-        const p = game.getPosition(target.unit)
+        const p = gameService.getPosition(game, target.unit)
 
         if (!_selectedUnit) return
         if (!_selectedAction) return
 
-        game.executeAction(_selectedAction, p)
+        gameService.executeAction(game, _selectedAction, p)
 
         console.log("Action executed", _selectedAction, p)
 
@@ -196,7 +199,7 @@ export class GameScene {
     private handleMoveActionSelection = (unitView: UnitView) => {
         const {game, rangeView, _callbacks} = this
 
-        rangeView.draw(unitView, game.getReachablePositions(unitView.unit))
+        rangeView.draw(unitView, gameService.getReachablePositions(game, unitView.unit))
 
         const state = game.getState(unitView.unit)
         const callback = _callbacks.get('select')
@@ -214,7 +217,7 @@ export class GameScene {
         console.log('Displaying attack range', unitView)
 
         const action = new AttackAction(unitView.unit)
-        rangeView.draw(unitView, game.getReachablePositionsForAction(action))
+        rangeView.draw(unitView, gameService.getReachablePositionsForAction(game, action))
 
         const state = game.getState(unitView.unit)
         const callback = _callbacks.get('select')
@@ -244,7 +247,7 @@ export class GameScene {
 
     endTurn = () => {
         const {game, unitsToMesh, select} = this
-        game.endTurn()
+        game.nextTurn()
         const activeUnit = unitsToMesh.get(game.getActiveUnit())
         activeUnit && select(activeUnit)
     }
@@ -298,7 +301,7 @@ export class GameScene {
             }
         } else if (_mode === "move" && intersects.length > 0 && _selectedUnit?.isMoving) {
             trajectoryView.clear()
-            const p = game.getClosestPosition({x: intersects[0].point.x, z: intersects[0].point.z})
+            const p = game.world.getClosestPosition2D({x: intersects[0].point.x, z: intersects[0].point.z})
             handleUnitMove(p)
         }
     }
