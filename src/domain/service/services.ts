@@ -1,4 +1,5 @@
 import {EdgeFilter, Graph, PathFinder, PositionMapping} from "../algorithm/path-finder"
+import {WorldMapPort} from "./ports"
 
 const getCandidates = <N, K>(graph: Graph<N, K>, start: N, startCost: number, filter?: EdgeFilter<N>) => {
     let candidates = graph.getNeighbours(start)
@@ -11,7 +12,7 @@ const getCandidates = <N, K>(graph: Graph<N, K>, start: N, startCost: number, fi
     }))
 }
 
-export class WorldMapService<N, K> {
+export class WorldMapService<N, K> implements WorldMapPort<N, K> {
 
     getShortestPathFromPosition<P>(graph: Graph<N, K>, getClosestNode: PositionMapping<P, N>, start: P, end: P): PathFinder<N, K> {
         const startNode = getClosestNode(start)

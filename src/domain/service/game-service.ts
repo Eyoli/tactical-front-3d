@@ -4,6 +4,7 @@ import {GRAVITATIONAL_FORCE_EQUIVALENT, ProjectileMotion} from "../algorithm/tra
 import {Game} from "../model/game"
 import {WorldMapService} from "./services"
 import {EdgeFilter} from "../algorithm/path-finder"
+import {GamePort} from "./ports"
 
 const worldMapService: WorldMapService<Position3D, number> = new WorldMapService()
 
@@ -11,21 +12,6 @@ const isAccessible = (p2D: Position2D, p3Ds: Position3D[]) => p3Ds.find(p => p.x
 
 const edgeFilter = (vMax: number, occupied: Position3D[]): EdgeFilter<Position3D> => (p1, p2) => !occupied.find(p => p.x === p2.x && p.z === p2.z)
     && Math.abs(p2.y - p1.y) <= vMax
-
-export interface GamePort {
-
-    moveUnit(game: Game, unit: Unit, param3: { x: number; z: number }): Position3D[] | undefined
-
-    getReachablePositions(game: Game, unit: Unit): Position3D[]
-
-    getReachablePositionsForAction(game: Game, action: Action): Position3D[]
-
-    executeAction(game: Game, action: Action, param3: { x: number; z: number }): void
-
-    getPosition(game: Game, unit: Unit): Position3D
-
-    previewAction(game: Game, _selectedAction: Action, p: Position3D): ActionResult
-}
 
 export class GameService implements GamePort {
 

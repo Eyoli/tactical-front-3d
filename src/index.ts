@@ -5,7 +5,7 @@ import {BasicWorldMapGenerator} from "./ui/threejs/world-map-generator"
 import {stats} from "./ui/monitoring/stats"
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
 import {GameBuilder} from "./domain/model/game"
-import {loadMinimalTexture} from "./ui/threejs/textures"
+import {loadImprovedTexture} from "./ui/threejs/textures"
 import {WorldMap} from "./domain/model/world-map"
 import {Player, Unit} from "./domain/model/types"
 import {BOW} from "./domain/model/weapons"
@@ -26,7 +26,7 @@ function main() {
     const cellSize = 16
 
     // Texture
-    const textureInfos = loadMinimalTexture(render)
+    const textureInfos = loadImprovedTexture(render)
 
     // Camera
     const fov = 75

@@ -3,7 +3,8 @@ import {AttackAction, Player, Unit} from "../src/domain/model/types"
 import {WorldMapService} from "../src/domain/service/services"
 import {WorldMap} from "../src/domain/model/world-map"
 import {UNIT_CANNOT_MOVE} from "../src/domain/model/errors"
-import {GamePort, GameService} from "../src/domain/service/gameService"
+import {GameService} from "../src/domain/service/game-service"
+import {GamePort} from "../src/domain/service/ports"
 
 const worldMapService = new WorldMapService()
 const gameService: GamePort = new GameService()

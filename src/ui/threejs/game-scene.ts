@@ -4,7 +4,8 @@ import {initUnit, UnitView} from "./units"
 import {TextureInfos, updateChunkGeometry} from "./textures"
 import {Game} from "../../domain/model/game"
 import {RangeView, TrajectoryView} from "./views"
-import {GamePort, GameService} from "../../domain/service/gameService"
+import {GameService} from "../../domain/service/game-service"
+import {GamePort} from "../../domain/service/ports"
 
 type GameSceneProps = {
     game: Game,
