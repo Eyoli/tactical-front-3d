@@ -88,10 +88,6 @@ export class UnitState {
     endTurn = () => new UnitState({hp: this.hp, position: this.position, canMove: false, canAct: false})
 }
 
-export type Turn = {
-    index: number
-}
-
 export interface Action {
     modify(target: UnitState): UnitState
 

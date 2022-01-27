@@ -1,5 +1,5 @@
 import {EdgeFilter, Graph, PathFinder, PositionMapping} from "../algorithm/path-finder"
-import {WorldMapPort} from "./ports"
+import {WorldMapPort} from "../ports"
 
 const getCandidates = <N, K>(graph: Graph<N, K>, start: N, startCost: number, filter?: EdgeFilter<N>) => {
     let candidates = graph.getNeighbours(start)

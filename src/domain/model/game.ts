@@ -1,6 +1,6 @@
-import {WorldMap} from "./world-map"
+import {ProjectileWorldMap, WorldMap} from "./world-map"
 import {Player, Position2D, Position3D, Unit, UnitState} from "./types"
-import {PLAYER_NOT_ADDED_BEFORE_UNIT, UNIT_WITHOUT_STATE} from "./errors"
+import {NO_ACTIVE_PLAYER, PLAYER_NOT_ADDED_BEFORE_UNIT, UNIT_WITHOUT_STATE} from "./errors"
 
 const last = <T>(array: T[]): T => array[array.length - 1]
 
@@ -39,16 +39,24 @@ export class GameBuilder {
 }
 
 export class Game {
+    readonly projectileWorldMap: ProjectileWorldMap
     private readonly unitsState = new Map<Unit, UnitState[]>()
     readonly playersUnits = new Map<Player, Unit[]>()
+    private readonly unitPlayer = new Map<Unit, Player>()
     private activeUnitIndex: number = 0
 
-    constructor(readonly world: WorldMap, readonly units: Unit[], gameInit: GameInit) {
+    constructor(
+        readonly world: WorldMap,
+        readonly units: Unit[], gameInit: GameInit) {
+        this.projectileWorldMap = new ProjectileWorldMap(world)
         gameInit.forEach(
             (unitsInit, player) => {
                 this.playersUnits.set(player, Array.from(unitsInit.keys()))
                 unitsInit.forEach(
-                    (p, unit) => this.unitsState.set(unit, [UnitState.init(unit, p)]))
+                    (p, unit) => {
+                        this.unitsState.set(unit, [UnitState.init(unit, p)])
+                        this.unitPlayer.set(unit, player)
+                    })
             })
         const activeUnit = this.getActiveUnit()
         const firstState = this.getState(activeUnit)
@@ -57,6 +65,14 @@ export class Game {
     }
 
     getActiveUnit = () => this.units[this.activeUnitIndex]
+
+    getActivePlayer = () => {
+        const activePlayer = this.unitPlayer.get(this.getActiveUnit())
+        if (!activePlayer) throw new Error(NO_ACTIVE_PLAYER)
+        return activePlayer
+    }
+
+    getActivePlayerUnits = () => this.playersUnits.get(this.getActivePlayer()) ?? []
 
     getStates = (unit: Unit): UnitState[] => {
         const states = this.unitsState.get(unit)

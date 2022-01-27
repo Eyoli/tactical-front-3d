@@ -5,7 +5,8 @@ import {TextureInfos, updateChunkGeometry} from "./textures"
 import {Game} from "../../domain/model/game"
 import {RangeView, TrajectoryView} from "./views"
 import {GameService} from "../../domain/service/game-service"
-import {GamePort} from "../../domain/service/ports"
+import {GamePort, IAPort} from "../../domain/ports"
+import {IAService} from "../../domain/service/ia-service"
 
 type GameSceneProps = {
     game: Game,
@@ -25,7 +26,18 @@ const neighborOffsets = [
     [0, 0, 1], // front
 ]
 
-const gameService: GamePort = new GameService()
+const gamePort: GamePort = new GameService()
+const iaPort: IAPort = new IAService()
+
+class IAManager {
+
+    constructor(private readonly gameScene: GameScene) {
+    }
+
+    handleTurn = (unitView: UnitView) => {
+
+    }
+}
 
 export class GameScene {
     private readonly game: Game
@@ -37,6 +49,7 @@ export class GameScene {
     private readonly unitLayer: Group
     private trajectoryView: TrajectoryView
     private _callbacks: Map<GameEvent, GameEventCallback> = new Map()
+    private readonly iaManager = new IAManager(this)
 
     private _selectedUnit?: UnitView
     private _selectedAction?: Action
@@ -96,7 +109,7 @@ export class GameScene {
         const {unitLayer, game, unitsToMesh, select} = this
         game.playersUnits.forEach((units, player) => {
             units.forEach(unit => {
-                const p = gameService.getPosition(game, unit)
+                const p = gamePort.getPosition(game, unit)
                 if (p) {
                     const unitMesh = initUnit(unit, p, player)
                     unitMesh.idle.play()
@@ -126,7 +139,7 @@ export class GameScene {
         }
 
         // Verify that a path exists between the locations
-        const path = gameService.moveUnit(game, unitView.unit, p)
+        const path = gamePort.moveUnit(game, unitView.unit, p)
         if (!path) {
             console.log(`Impossible to move unit (id=${unitView.unit.id}) to`, p, 'no path found')
             return
@@ -148,12 +161,12 @@ export class GameScene {
 
     private previewUnitAction = (target: UnitView) => {
         const {game, _callbacks, rangeView, _selectedUnit, _selectedAction, trajectoryView} = this
-        const p = gameService.getPosition(game, target.unit)
+        const p = gamePort.getPosition(game, target.unit)
 
         if (!_selectedUnit) return
         if (!_selectedAction) return
 
-        const actionResult = gameService.previewAction(game, _selectedAction, p)
+        const actionResult = gamePort.previewAction(game, _selectedAction, p)
 
         console.log("Action previewed", _selectedAction, p)
 
@@ -177,12 +190,12 @@ export class GameScene {
 
     private executeUnitAction = (target: UnitView) => {
         const {game, _callbacks, rangeView, trajectoryView, _selectedUnit, _selectedAction, select} = this
-        const p = gameService.getPosition(game, target.unit)
+        const p = gamePort.getPosition(game, target.unit)
 
         if (!_selectedUnit) return
         if (!_selectedAction) return
 
-        gameService.executeAction(game, _selectedAction, p)
+        gamePort.executeAction(game, _selectedAction, p)
 
         console.log("Action executed", _selectedAction, p)
 
@@ -200,7 +213,7 @@ export class GameScene {
     private handleMoveActionSelection = (unitView: UnitView) => {
         const {game, rangeView, _callbacks} = this
 
-        rangeView.draw(unitView, gameService.getReachablePositions(game, unitView.unit))
+        rangeView.draw(unitView, gamePort.getReachablePositions(game, unitView.unit))
 
         const state = game.getState(unitView.unit)
         const callback = _callbacks.get('select')
@@ -218,7 +231,7 @@ export class GameScene {
         console.log('Displaying attack range', unitView)
 
         const action = new AttackAction(unitView.unit)
-        rangeView.draw(unitView, gameService.getReachablePositionsForAction(game, action))
+        rangeView.draw(unitView, gamePort.getReachablePositionsForAction(game, action))
 
         const state = game.getState(unitView.unit)
         const callback = _callbacks.get('select')

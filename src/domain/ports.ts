@@ -1,6 +1,7 @@
-import {Game} from "../model/game"
-import {Action, ActionResult, Position3D, Unit} from "../model/types"
-import {EdgeFilter, Graph, PathFinder, PositionMapping} from "../algorithm/path-finder"
+import {Game} from "./model/game"
+import {Action, ActionResult, Position3D, Unit} from "./model/types"
+import {EdgeFilter, Graph, PathFinder, PositionMapping} from "./algorithm/path-finder"
+import {Turn} from "./model/ia"
 
 export interface GamePort {
     moveUnit(game: Game, unit: Unit, param3: { x: number; z: number }): Position3D[] | undefined
@@ -15,4 +16,8 @@ export interface WorldMapPort<N, K> {
     getShortestPathFromPosition<P>(graph: Graph<N, K>, getClosestNode: PositionMapping<P, N>, start: P, end: P): PathFinder<N, K>
     getShortestPath(graph: Graph<N, K>, startNode: N, endNode: N, filter?: EdgeFilter<N>): PathFinder<N, K>
     getAccessibleNodes(graph: Graph<N, K>, start: N, minCost: number, maxCost: number, filter?: EdgeFilter<N>): N[]
+}
+
+export interface IAPort {
+    computeBestTurnActions(game: Game): Turn
 }

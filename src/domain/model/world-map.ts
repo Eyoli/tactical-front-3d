@@ -1,6 +1,23 @@
 import {Graph} from "../algorithm/path-finder"
 import {Position2D, Position3D} from "./types"
 
+/**
+ * World map specific for projectiles. Indeed they don't really care about terrain.
+ */
+export class ProjectileWorldMap implements Graph<Position3D, number> {
+
+    constructor(private readonly worldMap: WorldMap) {
+    }
+
+    costBetween = (node: Position3D, neighbour: Position3D) => 1
+
+    distanceBetween = (node1: Position3D, node2: Position3D) => this.worldMap.distanceBetween(node1, node2)
+
+    getNeighbours = (node: Position3D) => this.worldMap.getNeighbours(node)
+
+    getNodeKey = (node: Position3D) => this.worldMap.getNodeKey(node)
+}
+
 export class WorldMap implements Graph<Position3D, number> {
     readonly chunkSize: number
     private readonly chunkSliceSize: number

@@ -2,9 +2,9 @@ import {Action, ActionResult, Position2D, Position3D, Unit, UnitState} from "../
 import {ACTION_CANNOT_REACH_TARGET, UNIT_CANNOT_MOVE, UNIT_CANNOT_REACH_POSITION} from "../model/errors"
 import {GRAVITATIONAL_FORCE_EQUIVALENT, ProjectileMotion} from "../algorithm/trajectory"
 import {Game} from "../model/game"
-import {WorldMapService} from "./services"
+import {WorldMapService} from "./world-map-service"
 import {EdgeFilter} from "../algorithm/path-finder"
-import {GamePort} from "./ports"
+import {GamePort} from "../ports"
 
 const worldMapService: WorldMapService<Position3D, number> = new WorldMapService()
 
@@ -59,7 +59,7 @@ export class GameService implements GamePort {
         let p = getPosition(game, action.source)
 
         return worldMapService.getAccessibleNodes(
-            game.world,
+            game.projectileWorldMap,
             p,
             action.range.min,
             action.range.max,

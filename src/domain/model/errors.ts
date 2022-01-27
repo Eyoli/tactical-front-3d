@@ -5,5 +5,6 @@ export const UNIT_CANNOT_REACH_POSITION = "Impossible to move unit: unreachable 
 export const UNIT_WITHOUT_STATE = (unit: Unit) => `Unit (id=${unit.id}) without state`
 
 export const PLAYER_NOT_ADDED_BEFORE_UNIT = "Add the player before adding a unit"
+export const NO_ACTIVE_PLAYER = "No active player"
 
 export const ACTION_CANNOT_REACH_TARGET = "Action impossible: target not in range"
