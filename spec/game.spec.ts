@@ -26,8 +26,8 @@ const aUnit = (): Unit => new Unit({
 
 const aGameWithFlatWorldAndTwoPlayers = () => {
     const worldMap = initWorldMap(3, [[1, 1, 1], [1, 1, 1], [1, 1, 1]])
-    const player1: Player = {id: 1, name: "P1", color: '#ff0000'}
-    const player2: Player = {id: 1, name: "P2", color: '#00ff00'}
+    const player1: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
+    const player2: Player = {id: 1, name: "P2", color: '#00ff00', mode: 'human'}
     return new GameBuilder(worldMap)
         .addPlayers(player1, player2)
         .addUnit(aUnit(), {x: 1, z: 1}, player1)
@@ -48,7 +48,7 @@ describe('game', () => {
 
     it('should select a unit and move it', () => {
         const worldMap = initWorldMap(10)
-        const player: Player = {id: 1, name: "P1", color: '#ff0000'}
+        const player: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
         const game = new GameBuilder(worldMap)
             .addPlayers(player)
             .addUnit(aUnit(), {x: 1, z: 1}, player)
@@ -63,7 +63,7 @@ describe('game', () => {
 
     it('should take into account forbidden positions', () => {
         const worldMap = initWorldMap(3, [[1, 1, 1], [2, 0, 1], [1, 1, 1]])
-        const player: Player = {id: 1, name: "P1", color: '#ff0000'}
+        const player: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
         const game = new GameBuilder(worldMap)
             .addPlayers(player)
             .addUnit(aUnit(), {x: 1, z: 1}, player)
@@ -77,7 +77,7 @@ describe('game', () => {
 
     it('should get reachable positions for a given unit', () => {
         const worldMap = initWorldMap(3, [[1, 1, 1], [2, 0, 1], [1, 1, 1]])
-        const player: Player = {id: 1, name: "P1", color: '#ff0000'}
+        const player: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
         const game = new GameBuilder(worldMap)
             .addPlayers(player)
             .addUnit(aUnit(), {x: 1, z: 1}, player)
@@ -93,7 +93,7 @@ describe('game', () => {
 
     it('should get reachable positions for a given action', () => {
         const worldMap = initWorldMap(3, [[0, 1, 1], [2, 0, 1], [1, 1, 1]])
-        const player: Player = {id: 1, name: "P1", color: '#ff0000'}
+        const player: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
         const game = new GameBuilder(worldMap)
             .addPlayers(player)
             .addUnit(aUnit(), {x: 1, z: 1}, player)

@@ -66,15 +66,9 @@ export class UnitView {
 
         object.move = mixer.clipAction(moveAnimationClip)
         object.move.setLoop(LoopOnce, 0)
-        mixer.addEventListener('finished', () => {
-            object.move = undefined
-        })
 
         object.move?.play()
-    }
-
-    get isMoving() {
-        return !this.move
+        return mixer
     }
 
     update = (time: number) => {

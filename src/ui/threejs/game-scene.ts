@@ -35,12 +35,18 @@ class IAManager {
     }
 
     handleTurn = (unitView: UnitView) => {
-
+        const {game} = this.gameScene
+        const turn = iaPort.computeBestTurnActions(game, unitView.unit)
+        for (let action of turn.actions) {
+            if (action.type === "move") {
+                this.gameScene.handleUnitMove(action.target, () => this.gameScene.endTurn())
+            }
+        }
     }
 }
 
 export class GameScene {
-    private readonly game: Game
+    readonly game: Game
     private readonly textureInfos: TextureInfos
     private readonly chunkIdToMesh: Map<string, Mesh<BufferGeometry, Material>> = new Map()
     private readonly unitsToMesh: Map<Unit, UnitView> = new Map<Unit, UnitView>()
@@ -54,6 +60,7 @@ export class GameScene {
     private _selectedUnit?: UnitView
     private _selectedAction?: Action
     private _mode?: SelectionMode
+    private _frozen = false
 
     constructor({game, textureInfos}: GameSceneProps) {
         this.game = game
@@ -130,7 +137,7 @@ export class GameScene {
 
     getUnitMesh = (uuid: string): UnitView | undefined => Array.from(this.unitsToMesh.values()).find((unitMesh) => unitMesh.childrenIds.indexOf(uuid) > 0)
 
-    handleUnitMove = (p: Position2D) => {
+    handleUnitMove = (p: Position2D, onMoveFinished: () => void) => {
         const {game, _callbacks, rangeView, _selectedUnit: unitView, select} = this
 
         if (!unitView) {
@@ -148,7 +155,9 @@ export class GameScene {
         rangeView.clear()
 
         console.log(`Moving unit (id=${unitView.unit.id}) to`, p)
-        unitView.startMovingToward(path, 5)
+
+        const mixer = unitView.startMovingToward(path, 5)
+        mixer.addEventListener('finished', onMoveFinished)
 
         const state = game.getState(unitView.unit)
         const callback = _callbacks.get('select')
@@ -260,10 +269,17 @@ export class GameScene {
     }
 
     endTurn = () => {
-        const {game, unitsToMesh, select} = this
+        const {game, unitsToMesh, iaManager, select} = this
         game.nextTurn()
-        const activeUnit = unitsToMesh.get(game.getActiveUnit())
-        activeUnit && select(activeUnit)
+        this._frozen = false
+
+        const activePlayer = game.getActivePlayer()
+        const activeMesh = unitsToMesh.get(game.getActiveUnit())
+        activeMesh && select(activeMesh)
+        if (activePlayer.mode === 'ia') {
+            this._frozen = true
+            activeMesh && iaManager.handleTurn(activeMesh)
+        }
     }
 
     private select = (unitView: UnitView) => {
@@ -293,6 +309,7 @@ export class GameScene {
             _mode,
             _selectedUnit,
             trajectoryView,
+            _frozen,
             select,
             unselect,
             previewUnitAction,
@@ -300,6 +317,7 @@ export class GameScene {
             getUnitMesh,
             handleUnitMove
         } = this
+        console.log("Frozen:", _frozen)
         const unitView = intersects.map(i => getUnitMesh(i.object.uuid)).find(i => i != undefined)
         if (unitView) {
             if (_selectedUnit) {
@@ -313,10 +331,11 @@ export class GameScene {
             } else {
                 select(unitView)
             }
-        } else if (_mode === "move" && intersects.length > 0 && _selectedUnit?.isMoving) {
+        } else if (_mode === "move" && intersects.length > 0 && !_frozen) {
             trajectoryView.clear()
             const p = game.world.getClosestPosition2D({x: intersects[0].point.x, z: intersects[0].point.z})
-            handleUnitMove(p)
+            this._frozen = true
+            handleUnitMove(p, () => this._frozen = false)
         }
     }
 }

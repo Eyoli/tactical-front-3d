@@ -102,5 +102,6 @@ export class Game {
         this.activeUnitIndex = (this.activeUnitIndex + 1) % this.units.length
         const newActiveUnit = this.getActiveUnit()
         this.getStates(newActiveUnit).push(this.getState(newActiveUnit).startTurn())
+        console.log('New turn: ', this.getActiveUnit(), this.getActivePlayer())
     }
 }

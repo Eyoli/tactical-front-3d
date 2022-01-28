@@ -19,5 +19,5 @@ export interface WorldMapPort<N, K> {
 }
 
 export interface IAPort {
-    computeBestTurnActions(game: Game): Turn
+    computeBestTurnActions(game: Game, unit: Unit): Turn
 }
