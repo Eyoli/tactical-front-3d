@@ -72,7 +72,18 @@ export class Game {
         return activePlayer
     }
 
-    getActivePlayerUnits = () => this.playersUnits.get(this.getActivePlayer()) ?? []
+    getActivePotentialTargets = () => {
+        const activePlayer = this.getActivePlayer()
+        console.log(this.playersUnits)
+        return Array.from(this.playersUnits.entries())
+            .filter((entry) => entry[0] !== activePlayer)
+            .map((entry) => entry[1])
+            .reduce((previous, current) => {
+                const next = (previous || [])
+                next.push(...current)
+                return next
+            })
+    }
 
     getStates = (unit: Unit): UnitState[] => {
         const states = this.unitsState.get(unit)

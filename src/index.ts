@@ -52,8 +52,8 @@ function main() {
     const player2: Player = {id: 2, name: "P2", color: '#00ff00', mode: 'ia'}
     const game = new GameBuilder(worldMap)
         .addPlayers(player1, player2)
-        .addUnit(new Unit({id: 1, name: "Knight", moves: 5, jump: 1, hp: 10}), {x: 1, z: 1}, player1)
-        .addUnit(new Unit({id: 2, name: "Archer", moves: 7, jump: 2, hp: 10, weapon: BOW(3, 10, 1)}), {
+        .addUnit(new Unit({id: 1, type: "warrior", name: "Knight", moves: 5, jump: 1, hp: 10}), {x: 1, z: 1}, player1)
+        .addUnit(new Unit({id: 2, type: "archer", name: "Archer", moves: 7, jump: 2, hp: 10, weapon: BOW(3, 10, 1)}), {
             x: 5,
             z: 5
         }, player2)
@@ -63,10 +63,7 @@ function main() {
         textureInfos
     })
 
-    const gameGUI = new TacticalGUI({title: "Game"})
-    gameGUI.add(gameScene, 'endTurn').name('End turn')
-    gameScene.on('select', (unitView, state) => gameGUI.updateSelectedUnit(gameScene, unitView, state))
-    gameScene.on('unselect', (unitView, state) => gameGUI.updateSelectedUnit(gameScene, unitView, state))
+    const gameGUI = new TacticalGUI(gameScene, {title: "Game"})
 
     const mainScene = new MainScene(gameScene, camera, controls)
     mainScene.addWater()

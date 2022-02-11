@@ -7,6 +7,7 @@ import {RangeView, TrajectoryView} from "./views"
 import {GameService} from "../../domain/service/game-service"
 import {GamePort, IAPort} from "../../domain/ports"
 import {IAService} from "../../domain/service/ia-service"
+import {ActionDetail, Turn} from "../../domain/model/ia"
 
 type GameSceneProps = {
     game: Game,
@@ -30,17 +31,24 @@ const gamePort: GamePort = new GameService()
 const iaPort: IAPort = new IAService()
 
 class IAManager {
-
     constructor(private readonly gameScene: GameScene) {
     }
 
     handleTurn = (unitView: UnitView) => {
         const {game} = this.gameScene
         const turn = iaPort.computeBestTurnActions(game, unitView.unit)
-        for (let action of turn.actions) {
+        this.handleAction(turn.actions)
+    }
+
+    private handleAction = (actions: IterableIterator<ActionDetail>) => {
+        const itResult = actions.next()
+        if (!itResult.done) {
+            const action = itResult.value
             if (action.type === "move") {
-                this.gameScene.handleUnitMove(action.target, () => this.gameScene.endTurn())
+                this.gameScene.handleUnitMove(action.target, () => this.handleAction(actions))
             }
+        } else {
+            this.gameScene.endTurn()
         }
     }
 }

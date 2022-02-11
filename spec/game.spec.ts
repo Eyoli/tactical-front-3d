@@ -21,7 +21,7 @@ const initWorldMap = (chunkSize: number, heightmap?: number[][], data?: number[]
 }
 
 const aUnit = (): Unit => new Unit({
-    id: 1, name: "", moves: 1, jump: 1, hp: 10, weapon: {range: {min: 1, max: 2, vMax: 1}, power: 1, area: 1}
+    id: 1, name: "", type: "warrior", moves: 1, jump: 1, hp: 10, weapon: {range: {min: 1, max: 2, vMax: 1}, power: 1, area: 1}
 })
 
 const aGameWithFlatWorldAndTwoPlayers = () => {

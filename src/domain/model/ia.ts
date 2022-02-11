@@ -8,5 +8,5 @@ export type ActionDetail = {
 }
 
 export type Turn = {
-    actions: ActionDetail[]
+    actions: IterableIterator<ActionDetail>
 }

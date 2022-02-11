@@ -12,8 +12,11 @@ export type Position2D = {
     z: number
 }
 
+export type UnitType = 'warrior' | 'archer'
+
 type UnitInitializer = {
     id: number
+    type: UnitType
     name: string
     moves: number
     jump: number
@@ -23,6 +26,7 @@ type UnitInitializer = {
 
 export class Unit {
     readonly id: number
+    readonly type: UnitType
     readonly name: string
     readonly moves: number
     readonly jump: number
@@ -31,6 +35,7 @@ export class Unit {
 
     constructor(initializer: UnitInitializer) {
         this.id = initializer.id
+        this.type = initializer.type
         this.name = initializer.name
         this.moves = initializer.moves
         this.jump = initializer.jump

@@ -5,7 +5,7 @@ import {GameScene} from "./threejs/game-scene"
 
 export class TacticalGUI extends GUI {
 
-    constructor(config?: {
+    constructor(gameScene: GameScene, config?: {
         autoPlace?: boolean;
         container?: HTMLElement;
         width?: number;
@@ -15,6 +15,9 @@ export class TacticalGUI extends GUI {
         parent?: GUI;
     }) {
         super(config)
+        this.add(gameScene, 'endTurn').name('End turn')
+        gameScene.on('select', (unitView, state) => this.updateSelectedUnit(gameScene, unitView, state))
+        gameScene.on('unselect', (unitView, state) => this.updateSelectedUnit(gameScene, unitView, state))
     }
 
     updateSelectedUnit = (gameScene: GameScene, unitView: UnitView, state: UnitState) => {
@@ -28,7 +31,7 @@ export class TacticalGUI extends GUI {
             unitGUI = this.addFolder(unit.name)
             unitGUI.add(unit, 'jump')
             unitGUI.add(unit, 'moves')
-            unitGUI.add(state, 'hp')
+            unitGUI.add(state, 'hp', 0, unit.hp)
             unitGUI.add(state.position, 'x')
             unitGUI.add(state.position, 'y')
             unitGUI.add(state.position, 'z')
