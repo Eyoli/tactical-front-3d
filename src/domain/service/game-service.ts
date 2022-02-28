@@ -52,11 +52,11 @@ export class GameService implements GamePort {
             edgeFilter(unit.jump, game.getPositions()))
     }
 
-    getReachablePositionsForAction = (game: Game, action: Action): Position3D[] => {
+    getReachablePositionsForAction = (game: Game, action: Action, start?: Position3D): Position3D[] => {
         const {getPosition} = this
 
-        // If we can't find unit position, we stop here
-        let p = getPosition(game, action.source)
+        // If start is not specified, or if we can't find source unit position, we stop here
+        let p = start ?? getPosition(game, action.source)
 
         return worldMapService.getAccessibleNodes(
             game.projectileWorldMap,

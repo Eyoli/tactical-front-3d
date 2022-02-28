@@ -15,7 +15,6 @@ import {
 } from "three"
 import {UnitView} from "./units"
 import {ProjectileMotion} from "../../domain/algorithm/trajectory"
-import {LoopOnce} from "three/src/constants"
 
 const createTileSelectionMesh = (color: string, p: Position3D): Mesh => {
     const mesh = new Mesh(new BoxGeometry(1, 0.1, 1), new MeshStandardMaterial({
@@ -83,8 +82,8 @@ export class TrajectoryView {
         this.trajectory = trajectory
     }
 
-    launchProjectile = () => {
-        const {pNb, trajectory, group, vectors, clear} = this
+    computeAnimation = () => {
+        const {pNb, trajectory, group, vectors} = this
 
         if (!trajectory) throw new Error("No trajectory computed")
 
@@ -98,12 +97,12 @@ export class TrajectoryView {
             values.push(x, y, z)
         })
         const vectorKF = new VectorKeyframeTrack('.position', times, values)
-        const launchAnimationClip = new AnimationClip('launch', -1, [vectorKF])
         const mixer = new AnimationMixer(projectile)
-        mixer.addEventListener('finished', () => clear())
-        this.launch = mixer.clipAction(launchAnimationClip)
-        this.launch.setLoop(LoopOnce, 0)
-        this.launch.play()
+
+        return {
+            mixer,
+            action: mixer.clipAction(new AnimationClip('launch', -1, [vectorKF]))
+        }
     }
 
     update = (time: number) => {
@@ -112,7 +111,13 @@ export class TrajectoryView {
 
     clear = () => {
         console.log("Clear trajectory")
+        this.trajectory = undefined
         this.group.clear()
         this.group.removeFromParent()
+    }
+
+    isReady(): boolean {
+        console.log(this.trajectory)
+        return this.trajectory !== undefined
     }
 }

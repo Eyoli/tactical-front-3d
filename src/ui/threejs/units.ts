@@ -13,6 +13,7 @@ import {
 } from "three"
 import {Player, Position3D, Unit} from "../../domain/model/types"
 import {LoopOnce} from "three/src/constants"
+import {TrajectoryView} from "./views"
 
 const computeChildrenIds = (mesh: Object3D) => {
     let listToExplore: Object3D[] = []
@@ -32,7 +33,8 @@ export class UnitView {
     readonly player: Player
     readonly idle: AnimationAction
     readonly childrenIds
-    move?: AnimationAction
+    private move?: AnimationAction
+    private attack?: AnimationAction
 
     constructor(unit: Unit, player: Player, mesh: Object3D, idleAnimationClip: AnimationClip) {
         this.mesh = mesh
@@ -61,6 +63,7 @@ export class UnitView {
         const moveAnimationClip = new AnimationClip('move', -1, [vectorKF])
         const mixer = new AnimationMixer(object.mesh)
 
+        // We update the object position (we are moving after all)
         const to = values.slice(values.length - 3)
         object.mesh.position.set(to[0], to[1], to[2])
 
@@ -71,9 +74,39 @@ export class UnitView {
         return mixer
     }
 
+    startAttacking = (target: UnitView, trajectoryView: TrajectoryView, duration: number) => {
+        const object = this
+
+        let mixer: AnimationMixer
+        if (trajectoryView.isReady()) {
+            const computed = trajectoryView.computeAnimation()
+            mixer = computed.mixer
+            object.attack = computed.action
+        } else {
+            const values: number[] = [], times: number[] = []
+            times.push(0)
+            values.push(object.mesh.position.x, object.mesh.position.y, object.mesh.position.z)
+            times.push(duration / 2)
+            values.push(target.mesh.position.x, target.mesh.position.y, target.mesh.position.z)
+            times.push(duration)
+            values.push(object.mesh.position.x, object.mesh.position.y, object.mesh.position.z)
+
+            const vectorKF = new VectorKeyframeTrack('.position', times, values)
+            const animationClip = new AnimationClip('attack', -1, [vectorKF])
+
+            mixer = new AnimationMixer(object.mesh)
+            object.attack = mixer.clipAction(animationClip)
+        }
+
+        object.attack?.setLoop(LoopOnce, 0)
+        object.attack?.play()
+        return mixer
+    }
+
     update = (time: number) => {
         this.idle.getMixer().update(time)
         this.move?.getMixer().update(time)
+        this.attack?.getMixer().update(time)
     }
 }
 

@@ -1,10 +1,10 @@
 import {Game} from "./model/game"
-import {Action, ActionResult, Position3D, Unit} from "./model/types"
+import {Action, ActionResult, Position2D, Position3D, Unit} from "./model/types"
 import {EdgeFilter, Graph, PathFinder, PositionMapping} from "./algorithm/path-finder"
 import {Turn} from "./model/ia"
 
 export interface GamePort {
-    moveUnit(game: Game, unit: Unit, param3: { x: number; z: number }): Position3D[] | undefined
+    moveUnit(game: Game, unit: Unit, position: Position2D): Position3D[] | undefined
     getReachablePositions(game: Game, unit: Unit): Position3D[]
     getReachablePositionsForAction(game: Game, action: Action): Position3D[]
     executeAction(game: Game, action: Action, param3: { x: number; z: number }): void

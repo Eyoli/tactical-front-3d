@@ -1,0 +1,61 @@
+@startuml
+
+title Classes
+
+package "Map" #DDDDDD {
+	interface Graph<N,K> {
+		{abstract} +getNeighbours(node: N): N[]
+		{abstract} +getNodeKey(node: N): K
+		{abstract} +costBetween(node: N, neighbour: N): number
+		{abstract} +distanceBetween(node1: N, node2: N): number
+	}
+
+	class WorldMap<Position3D,number> implements Graph
+	class ProjectileWorldMap<Position3D,number> implements Graph
+	class Position2D {
+		+x: number
+		+y: number
+	}
+	class Position3D {
+		+x: number
+		+y: number
+		+z: number
+	}
+
+	ProjectileWorldMap "1" *-- "1" WorldMap
+}
+
+package "Game" #EEEEEE {
+	class Game {
+	}
+	class Player {
+	}
+	class Unit {
+	}
+	class UnitState {
+	}
+	class Map<Unit,UnitState>
+
+	Game "1" *-- "n" Player
+	Game "1" *-- "n" Unit
+	Game "1" *-- "1" WorldMap
+	UnitState "1" *-- "1" Position2D
+}
+
+package "Action" #EFEFEF {
+	interface Action {
+		{abstract} +modify(target: UnitState): UnitState
+		{abstract} +source(): Unit
+		{abstract} +range(): Range
+		{abstract} +trajectory(): string
+	}
+	class AttackAction implements Action
+	class ProjectileMotion
+	class ActionResult {
+		+newStates: Map<Unit,UnitState>
+	}
+	ActionResult *-- ProjectileMotion
+}
+
+
+@enduml

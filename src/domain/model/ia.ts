@@ -1,10 +1,11 @@
-import {Position2D} from "./types"
+import {Position2D, Unit} from "./types"
 
 export type ActionType = 'move' | 'attack'
 
 export type ActionDetail = {
     type: ActionType
-    target: Position2D
+    position?: Position2D
+    target?: Unit
 }
 
 export type Turn = {
