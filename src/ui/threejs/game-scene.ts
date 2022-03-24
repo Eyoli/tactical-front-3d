@@ -12,7 +12,8 @@ import {delay} from "./utility"
 
 type GameSceneProps = {
     game: Game,
-    textureInfos: TextureInfos
+    textureInfos: TextureInfos,
+    delay: number,
 }
 type SelectionMode = 'move' | 'attack' | 'preview'
 type GameEvent = 'select' | 'unselect' | 'preview'
@@ -64,9 +65,9 @@ class IAManager {
                     unitView: targetUnitView
                 }
                 gameScene.handleAttackActionSelection(unitView)
-                delay(1000)
+                delay(gameScene.delay)
                     .then(() => gameScene.previewUnitAction(target))
-                    .then(() => delay(1000))
+                    .then(() => delay(gameScene.delay))
                     .then(() => gameScene.executeUnitAction(target, () => this.handleAction(unitView, actions)))
             } else {
                 // We can't do anything with this kind of action, so we proceed to the next one
@@ -80,6 +81,7 @@ class IAManager {
 
 export class GameScene {
     readonly game: Game
+    readonly delay: number
     private readonly textureInfos: TextureInfos
     private readonly chunkIdToMesh: Map<string, Mesh<BufferGeometry, Material>> = new Map()
     private readonly unitsToMesh: Map<Unit, UnitView> = new Map<Unit, UnitView>()
@@ -95,9 +97,10 @@ export class GameScene {
     private _mode?: SelectionMode
     private _frozen = false
 
-    constructor({game, textureInfos}: GameSceneProps) {
+    constructor({game, textureInfos, delay}: GameSceneProps) {
         this.game = game
         this.textureInfos = textureInfos
+        this.delay = delay || 1000
 
         this.parent = new Group()
 

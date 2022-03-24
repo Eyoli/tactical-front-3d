@@ -50,17 +50,22 @@ function main() {
     worldGenerator.generate(worldMap)
     const player1: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'ia'}
     const player2: Player = {id: 2, name: "P2", color: '#00ff00', mode: 'ia'}
+    let id = 0
     const game = new GameBuilder(worldMap)
         .addPlayers(player1, player2)
-        .addUnit(new Unit({id: 1, type: "warrior", name: "Knight", moves: 5, jump: 1, hp: 10}), {x: 1, z: 1}, player1)
-        .addUnit(new Unit({id: 2, type: "archer", name: "Archer", moves: 7, jump: 2, hp: 10, weapon: BOW(3, 10, 1)}), {
+        .addUnit(new Unit({id: id++, type: "warrior", name: "Knight", moves: 5, jump: 1, hp: 10}), {x: 1, z: 1}, player1)
+        .addUnit(new Unit({id: id++, type: "warrior", name: "Knight", moves: 8, jump: 1, hp: 10}), {x: 5, z: 5}, player1)
+        .addUnit(new Unit({id: id++, type: "warrior", name: "Knight", moves: 8, jump: 1, hp: 10}), {x: 6, z: 6}, player1)
+        .addUnit(new Unit({id: id++, type: "warrior", name: "Knight", moves: 8, jump: 1, hp: 10}), {x: 7, z: 7}, player1)
+        .addUnit(new Unit({id: id++, type: "archer", name: "Archer", moves: 7, jump: 2, hp: 10, weapon: BOW(3, 10, 1)}), {
             x: 9,
             z: 9
         }, player2)
         .start()
     const gameScene = new GameScene({
         game: game,
-        textureInfos
+        textureInfos,
+        delay: 200
     })
 
     const gameGUI = new TacticalGUI(gameScene, {title: "Game"})

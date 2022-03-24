@@ -58,7 +58,7 @@ export class GameService implements GamePort {
         // If start is not specified, or if we can't find source unit position, we stop here
         let p = start ?? getPosition(game, action.source)
 
-        return worldMapService.getAccessibleNodes(
+        return worldMapService.getNodesAccessibleByFlight(
             game.projectileWorldMap,
             p,
             action.range.min,

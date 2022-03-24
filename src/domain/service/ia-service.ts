@@ -9,7 +9,7 @@ const gamePort: GamePort = new GameService()
 
 const isPositionWithinWeaponRange = (weapon: Weapon, game: Game, pUnit: Position3D, pTarget: Position3D) => {
     const d = game.world.distanceBetween(pTarget, pUnit)
-    return d >= weapon.range.min && d <= weapon.range.max
+    return d >= weapon.range.min && d <= weapon.range.max && Math.abs(pUnit.y - pTarget.y) <= weapon.range.vMax
 }
 
 const getFirstTargetWithinRange = (unit: Unit, accessiblePositions: Position3D[], game: Game, potentialTargets: Unit[]): Unit | undefined => potentialTargets
@@ -27,6 +27,9 @@ const getFirstTargetWithinRange = (unit: Unit, accessiblePositions: Position3D[]
 const getClosestPositionToTarget = (unit: Unit, accessiblePositions: Position3D[], target: Unit, game: Game): Position3D => {
 
     const pTarget = game.getState(target).position
+
+    if (accessiblePositions.length === 0) throw new Error("No accessible position available")
+
     // If we find a target, we find the closest accessible position to it
     return accessiblePositions
         .map(p => ({
@@ -65,14 +68,13 @@ export class IAService implements IAPort {
                     let pUnit = game.getState(unit).position
 
                     // If we can't reach our target, we try to move closer
-                    if(!isPositionWithinWeaponRange(unit.weapon, game, pUnit, pTarget)) {
+                    if(accessiblePositions.length > 0 && !isPositionWithinWeaponRange(unit.weapon, game, pUnit, pTarget)) {
                         pUnit = getClosestPositionToTarget(unit, accessiblePositions, target, game)
                         actions.push({type: "move" as ActionType, position: {x: pUnit.x, z: pUnit.z} as Position2D})
                     }
 
                     // If we can reach our target (with or without moving toward it), we attack it
                     if (isPositionWithinWeaponRange(unit.weapon, game, pUnit, pTarget)) {
-                        console.log(actions, unit.weapon, game, pUnit, pTarget)
                         actions.push({type: "attack", target})
                     }
                 }

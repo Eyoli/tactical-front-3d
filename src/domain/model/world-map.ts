@@ -13,7 +13,7 @@ export class ProjectileWorldMap implements Graph<Position3D, number> {
 
     distanceBetween = (node1: Position3D, node2: Position3D) => this.worldMap.distanceBetween(node1, node2)
 
-    getNeighbours = (node: Position3D) => this.worldMap.getNeighbours(node)
+    getNeighbours = (p: Position3D): Position3D[] => this.worldMap.getNeighbours(p)
 
     getNodeKey = (node: Position3D) => this.worldMap.getNodeKey(node)
 }

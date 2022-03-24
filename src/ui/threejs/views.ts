@@ -117,7 +117,6 @@ export class TrajectoryView {
     }
 
     isReady(): boolean {
-        console.log(this.trajectory)
         return this.trajectory !== undefined
     }
 }
