@@ -9,7 +9,7 @@ export class ProjectileWorldMap implements Graph<Position3D, number> {
     constructor(private readonly worldMap: WorldMap) {
     }
 
-    costBetween = (node: Position3D, neighbour: Position3D) => 1
+    costBetween = (node: Position3D, neighbour: Position3D) => this.worldMap.distanceBetween(node, neighbour)
 
     distanceBetween = (node1: Position3D, node2: Position3D) => this.worldMap.distanceBetween(node1, node2)
 
@@ -96,8 +96,13 @@ export class WorldMap implements Graph<Position3D, number> {
         return height + 1
     }
 
-    getClosestPosition2D = ({x, z}: Position2D): Position2D => {
-        return {x: Math.floor(x), z: Math.floor(z)}
+    getClosestPositionInWorld = ({x, z}: Position2D): Position3D => {
+        const ix = Math.floor(x), iz = Math.floor(z)
+        return {
+            x: ix,
+            y: this.getHeight(ix, iz),
+            z: iz
+        }
     }
 
     getPosition3D = ({x, z}: Position2D) => ({

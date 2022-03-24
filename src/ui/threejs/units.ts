@@ -74,7 +74,7 @@ export class UnitView {
         return mixer
     }
 
-    startAttacking = (target: UnitView, trajectoryView: TrajectoryView, duration: number) => {
+    startAttacking = (target: Object3D, trajectoryView: TrajectoryView, duration: number) => {
         const object = this
 
         let mixer: AnimationMixer
@@ -87,7 +87,7 @@ export class UnitView {
             times.push(0)
             values.push(object.mesh.position.x, object.mesh.position.y, object.mesh.position.z)
             times.push(duration / 2)
-            values.push(target.mesh.position.x, target.mesh.position.y, target.mesh.position.z)
+            values.push(target.position.x, target.position.y, target.position.z)
             times.push(duration)
             values.push(object.mesh.position.x, object.mesh.position.y, object.mesh.position.z)
 

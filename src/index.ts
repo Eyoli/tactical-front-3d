@@ -49,7 +49,7 @@ function main() {
     )
     worldGenerator.generate(worldMap)
     const player1: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'ia'}
-    const player2: Player = {id: 2, name: "P2", color: '#00ff00', mode: 'human'}
+    const player2: Player = {id: 2, name: "P2", color: '#00ff00', mode: 'ia'}
     const game = new GameBuilder(worldMap)
         .addPlayers(player1, player2)
         .addUnit(new Unit({id: 1, type: "warrior", name: "Knight", moves: 5, jump: 1, hp: 10}), {x: 1, z: 1}, player1)

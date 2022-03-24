@@ -6,7 +6,7 @@ import {Turn} from "./model/ia"
 export interface GamePort {
     moveUnit(game: Game, unit: Unit, position: Position2D): Position3D[] | undefined
     getReachablePositions(game: Game, unit: Unit): Position3D[]
-    getReachablePositionsForAction(game: Game, action: Action): Position3D[]
+    getReachablePositionsForAction(game: Game, action: Action, start?: Position3D): Position3D[]
     executeAction(game: Game, action: Action, param3: { x: number; z: number }): void
     getPosition(game: Game, unit: Unit): Position3D
     previewAction(game: Game, _selectedAction: Action, p: Position3D): ActionResult

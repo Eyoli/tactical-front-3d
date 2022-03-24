@@ -1,5 +1,5 @@
-import {BufferGeometry, Group, Intersection, Material, Mesh} from "three"
-import {Action, AttackAction, Position2D, Unit} from "../../domain/model/types"
+import {BufferGeometry, Group, Intersection, Material, Mesh, Object3D} from "three"
+import {Action, AttackAction, Position2D, Position3D, Unit} from "../../domain/model/types"
 import {initUnit, UnitView} from "./units"
 import {TextureInfos, updateChunkGeometry} from "./textures"
 import {Game} from "../../domain/model/game"
@@ -8,6 +8,7 @@ import {GameService} from "../../domain/service/game-service"
 import {GamePort, IAPort} from "../../domain/ports"
 import {IAService} from "../../domain/service/ia-service"
 import {ActionDetail} from "../../domain/model/ia"
+import {delay} from "./utility"
 
 type GameSceneProps = {
     game: Game,
@@ -16,6 +17,11 @@ type GameSceneProps = {
 type SelectionMode = 'move' | 'attack' | 'preview'
 type GameEvent = 'select' | 'unselect' | 'preview'
 type GameEventCallback = (...args: any) => void
+type Target = {
+    object: Object3D,
+    position: Position3D,
+    unitView?: UnitView
+}
 
 const neighborOffsets = [
     [0, 0, 0], // self
@@ -42,19 +48,26 @@ class IAManager {
 
     private handleAction = (unitView: UnitView, actions: IterableIterator<ActionDetail>) => {
         const {gameScene, handleAction} = this
+        const {game} = gameScene
         const itResult = actions.next()
         if (!itResult.done) {
             const action = itResult.value
             if (action.type === "move") {
                 // We execute the move
                 gameScene.handleUnitMove(action.position!, () => this.handleAction(unitView, actions))
-            } else if (action.type === "attack") {
+            } else if (action.type === "attack" && action.target) {
                 // We execute the attack
-                const mesh = gameScene.getUnitMeshFromUnit(action.target!)
+                const targetUnitView = gameScene.getUnitViewFromUnit(action.target)
+                const target: Target = {
+                    object: targetUnitView.mesh,
+                    position: game.getState(action.target).position,
+                    unitView: targetUnitView
+                }
                 gameScene.handleAttackActionSelection(unitView)
-                setTimeout(() => {
-                    gameScene.executeUnitAction(mesh, () => this.handleAction(unitView, actions))
-                }, 1000)
+                delay(1000)
+                    .then(() => gameScene.previewUnitAction(target))
+                    .then(() => delay(1000))
+                    .then(() => gameScene.executeUnitAction(target, () => this.handleAction(unitView, actions)))
             } else {
                 // We can't do anything with this kind of action, so we proceed to the next one
                 handleAction(unitView, actions)
@@ -133,7 +146,7 @@ export class GameScene {
     }
 
     generateUnits = () => {
-        const {unitLayer, game, unitsToMesh, select, getUnitMeshFromUnit} = this
+        const {unitLayer, game, unitsToMesh, select, getUnitViewFromUnit} = this
         game.playersUnits.forEach((units, player) => {
             units.forEach(unit => {
                 const p = gamePort.getPosition(game, unit)
@@ -146,7 +159,7 @@ export class GameScene {
             })
         })
 
-        const activeUnit = getUnitMeshFromUnit(game.getActiveUnit())
+        const activeUnit = getUnitViewFromUnit(game.getActiveUnit())
         activeUnit && select(activeUnit)
     }
 
@@ -155,13 +168,29 @@ export class GameScene {
         this.trajectoryView.update(time)
     }
 
-    getUnitMeshFromUnit = (unit: Unit) => {
+    getUnitViewFromUnit = (unit: Unit) => {
         const mesh = this.unitsToMesh.get(unit)
         if (!mesh) throw new Error(`Unit ${unit} has no mesh`)
         return mesh
     }
 
-    getUnitMesh = (uuid: string): UnitView | undefined => Array.from(this.unitsToMesh.values()).find((unitMesh) => unitMesh.childrenIds.indexOf(uuid) > 0)
+    getTarget = (intersects: Intersection[]): Target | undefined => {
+        const {game} = this
+        const unitView = intersects.map(i => Array.from(this.unitsToMesh.values()).find((unitMesh) => unitMesh.childrenIds.indexOf(i.object.uuid) > 0)).find(i => i != undefined)
+        if (unitView) {
+            return {
+                object: unitView.mesh,
+                position: gamePort.getPosition(game, unitView.unit),
+                unitView
+            }
+        } else if (intersects.length > 0) {
+            return {
+                object: intersects[0].object,
+                position: game.world.getClosestPositionInWorld({x: intersects[0].point.x, z: intersects[0].point.z})
+            }
+        }
+        return undefined
+    }
 
     handleUnitMove = (p: Position2D, onAnimationFinished: () => void) => {
         const {game, _callbacks, rangeView, _selectedUnit, select} = this
@@ -194,16 +223,15 @@ export class GameScene {
         select(_selectedUnit)
     }
 
-    private previewUnitAction = (target: UnitView) => {
+    previewUnitAction = (target: Target) => {
         const {game, _callbacks, rangeView, _selectedUnit, _selectedAction, trajectoryView} = this
-        const p = gamePort.getPosition(game, target.unit)
 
         if (!_selectedUnit) throw new Error("No selected unit")
         if (!_selectedAction) throw new Error("No selected action")
 
-        const actionResult = gamePort.previewAction(game, _selectedAction, p)
+        const actionResult = gamePort.previewAction(game, _selectedAction, target.position)
 
-        console.log("Action previewed", _selectedAction, p)
+        console.log("Action previewed", _selectedAction, target.position)
 
         const state = game.getState(_selectedUnit.unit)
         const callback = _callbacks.get('preview')
@@ -215,24 +243,23 @@ export class GameScene {
             })))
         }
 
-        actionResult.trajectory && trajectoryView.draw(_selectedUnit, target.mesh, actionResult.trajectory)
+        actionResult.trajectory && trajectoryView.draw(_selectedUnit, target.object, actionResult.trajectory)
         rangeView.clear()
         rangeView.draw(_selectedUnit, [state.position])
-        rangeView.draw(target, [game.getState(target.unit).position])
+        target.unitView && rangeView.draw(target.unitView, [game.getState(target.unitView.unit).position])
 
         this._mode = "preview"
     }
 
-    executeUnitAction = (target: UnitView, onAnimationFinished: () => void) => {
+    executeUnitAction = (target: Target, onAnimationFinished: () => void) => {
         const {game, _callbacks, rangeView, trajectoryView, _selectedUnit, _selectedAction, select} = this
-        const p = gamePort.getPosition(game, target.unit)
 
         if (!_selectedUnit) throw new Error("No selected unit")
         if (!_selectedAction) throw new Error("No selected action")
 
-        gamePort.executeAction(game, _selectedAction, p)
+        gamePort.executeAction(game, _selectedAction, target.position)
 
-        console.log("Action executed", _selectedAction, p)
+        console.log("Action executed", _selectedAction, target.position)
 
         const state = game.getState(_selectedUnit.unit)
         const callback = _callbacks.get('select')
@@ -241,7 +268,7 @@ export class GameScene {
         }
 
         rangeView.clear()
-        const mixer = _selectedUnit.startAttacking(target, trajectoryView, 1)
+        const mixer = _selectedUnit.startAttacking(target.object, trajectoryView, 1)
         mixer.addEventListener('finished', () => {
             trajectoryView.clear()
             onAnimationFinished()
@@ -301,9 +328,9 @@ export class GameScene {
 
     startTurn = () => {
         this._frozen = false
-        const {game, iaManager, select, getUnitMeshFromUnit} = this
+        const {game, iaManager, select, getUnitViewFromUnit} = this
         const activePlayer = game.getActivePlayer()
-        const activeMesh = getUnitMeshFromUnit(game.getActiveUnit())
+        const activeMesh = getUnitViewFromUnit(game.getActiveUnit())
         select(activeMesh)
         if (activePlayer.mode === 'ia') {
             this._frozen = true
@@ -349,32 +376,31 @@ export class GameScene {
             unselect,
             previewUnitAction,
             executeUnitAction,
-            getUnitMesh,
+            getTarget,
             handleUnitMove
         } = this
-        console.log("Frozen:", _frozen)
-        const unitView = intersects.map(i => getUnitMesh(i.object.uuid)).find(i => i != undefined)
-        if (unitView) {
+        const target = getTarget(intersects)
+        if (target) {
             if (_selectedUnit) {
-                if (_selectedUnit === unitView) {
+                if (_selectedUnit === target?.unitView) {
                     unselect()
                 } else if (_mode === "attack") {
-                    previewUnitAction(unitView)
+                    previewUnitAction(target)
                 } else if (_mode === "preview") {
                     this._frozen = true
-                    executeUnitAction(unitView, () => {
+                    executeUnitAction(target, () => {
                         trajectoryView.clear()
                         this._frozen = false
                     })
+                } else if (_mode === "move" && !_frozen) {
+                    trajectoryView.clear()
+                    const p = game.world.getClosestPositionInWorld({x: intersects[0].point.x, z: intersects[0].point.z})
+                    this._frozen = true
+                    handleUnitMove(p, () => this._frozen = false)
                 }
             } else {
-                select(unitView)
+                target.unitView && select(target.unitView)
             }
-        } else if (_mode === "move" && intersects.length > 0 && !_frozen) {
-            trajectoryView.clear()
-            const p = game.world.getClosestPosition2D({x: intersects[0].point.x, z: intersects[0].point.z})
-            this._frozen = true
-            handleUnitMove(p, () => this._frozen = false)
         }
     }
 }

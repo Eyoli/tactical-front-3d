@@ -17,3 +17,8 @@ export const toScreenPosition = (object: Object3D, camera: Camera, canvas: HTMLC
 }
 
 export const toVector3 = ({x, y, z}: Position3D) => new Vector3(x, y, z)
+
+export const delay = (ms: number): Promise<void> =>
+    new Promise((resolve): void => {
+        setTimeout(resolve, ms)
+    })

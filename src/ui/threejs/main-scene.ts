@@ -55,7 +55,7 @@ export class MainScene {
     }
 
     addWater() {
-        const waterGeometry = new PlaneGeometry(10000, 10000)
+        const waterGeometry = new PlaneGeometry(1000, 1000)
 
         const water = new Water(
             waterGeometry,
