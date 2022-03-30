@@ -1,8 +1,6 @@
-type Matrix = number[][]
+import {randomInRange} from "./probability"
 
-function randomInRange(min: number, max: number) {
-    return Math.floor(Math.random() * (max - min + 1) + min)
-}
+type Matrix = number[][]
 
 function generateMatrix(size: number, meanLevel: number, randomFactor: number): Matrix {
     const matrix = new Array(size)

@@ -1,14 +1,13 @@
-import {BufferGeometry, Group, Intersection, Material, Mesh, Object3D} from "three"
-import {Action, AttackAction, Position2D, Position3D, Unit} from "../../domain/model/types"
+import {BufferGeometry, Group, Intersection, Material, Mesh} from "three"
+import {Action, AttackAction, Position2D, Unit} from "../../domain/model/types"
 import {initUnit, UnitView} from "./units"
 import {TextureInfos, updateChunkGeometry} from "./textures"
 import {Game} from "../../domain/model/game"
 import {RangeView, TrajectoryView} from "./views"
 import {GameService} from "../../domain/service/game-service"
-import {GamePort, IAPort} from "../../domain/ports"
-import {IAService} from "../../domain/service/ia-service"
-import {ActionDetail} from "../../domain/model/ia"
-import {delay} from "./utility"
+import {GamePort} from "../../domain/ports"
+import {IAManager} from "./ia"
+import {Target} from "./types"
 
 type GameSceneProps = {
     game: Game,
@@ -18,11 +17,6 @@ type GameSceneProps = {
 type SelectionMode = 'move' | 'attack' | 'preview'
 type GameEvent = 'select' | 'unselect' | 'preview'
 type GameEventCallback = (...args: any) => void
-type Target = {
-    object: Object3D,
-    position: Position3D,
-    unitView?: UnitView
-}
 
 const neighborOffsets = [
     [0, 0, 0], // self
@@ -35,49 +29,6 @@ const neighborOffsets = [
 ]
 
 const gamePort: GamePort = new GameService()
-const iaPort: IAPort = new IAService()
-
-class IAManager {
-    constructor(private readonly gameScene: GameScene) {
-    }
-
-    handleTurn = (unitView: UnitView) => {
-        const {game} = this.gameScene
-        const turn = iaPort.computeBestTurnActions(game, unitView.unit)
-        this.handleAction(unitView, turn.actions)
-    }
-
-    private handleAction = (unitView: UnitView, actions: IterableIterator<ActionDetail>) => {
-        const {gameScene, handleAction} = this
-        const {game} = gameScene
-        const itResult = actions.next()
-        if (!itResult.done) {
-            const action = itResult.value
-            if (action.type === "move") {
-                // We execute the move
-                gameScene.handleUnitMove(action.position!, () => this.handleAction(unitView, actions))
-            } else if (action.type === "attack" && action.target) {
-                // We execute the attack
-                const targetUnitView = gameScene.getUnitViewFromUnit(action.target)
-                const target: Target = {
-                    object: targetUnitView.mesh,
-                    position: game.getState(action.target).position,
-                    unitView: targetUnitView
-                }
-                gameScene.handleAttackActionSelection(unitView)
-                delay(gameScene.delay)
-                    .then(() => gameScene.previewUnitAction(target))
-                    .then(() => delay(gameScene.delay))
-                    .then(() => gameScene.executeUnitAction(target, () => this.handleAction(unitView, actions)))
-            } else {
-                // We can't do anything with this kind of action, so we proceed to the next one
-                handleAction(unitView, actions)
-            }
-        } else {
-            gameScene.endTurn()
-        }
-    }
-}
 
 export class GameScene {
     readonly game: Game
@@ -255,12 +206,28 @@ export class GameScene {
     }
 
     executeUnitAction = (target: Target, onAnimationFinished: () => void) => {
-        const {game, _callbacks, rangeView, trajectoryView, _selectedUnit, _selectedAction, select} = this
+        const {
+            game,
+            _callbacks,
+            rangeView,
+            trajectoryView,
+            _selectedUnit,
+            _selectedAction,
+            select,
+            getUnitViewFromUnit
+        } = this
 
         if (!_selectedUnit) throw new Error("No selected unit")
         if (!_selectedAction) throw new Error("No selected action")
 
-        gamePort.executeAction(game, _selectedAction, target.position)
+        const actionResult = gamePort.executeAction(game, _selectedAction, target.position)
+        actionResult.newStates.forEach((newState, unit) => {
+            if (newState.dead) {
+                const unitView = getUnitViewFromUnit(unit)
+                console.log("Unit is dead", unit)
+                unitView.die()
+            }
+        })
 
         console.log("Action executed", _selectedAction, target.position)
 
@@ -295,12 +262,11 @@ export class GameScene {
         this._selectedUnit = unitView
     }
 
-    handleAttackActionSelection = (unitView: UnitView) => {
+    handleActionSelection = (unitView: UnitView, action: Action) => {
         const {game, rangeView, _callbacks} = this
 
         console.log('Displaying attack range', unitView)
 
-        const action = new AttackAction(unitView.unit)
         rangeView.draw(unitView, gamePort.getReachablePositionsForAction(game, action))
 
         const state = game.getState(unitView.unit)
@@ -318,7 +284,8 @@ export class GameScene {
     attackMode = () => {
         this._mode = "attack"
         if (this._selectedUnit) {
-            this.handleAttackActionSelection(this._selectedUnit)
+            const action = new AttackAction(this._selectedUnit.unit)
+            this.handleActionSelection(this._selectedUnit, action)
         }
     }
 

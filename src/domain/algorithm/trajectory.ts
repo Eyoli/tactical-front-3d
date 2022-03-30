@@ -1,10 +1,13 @@
+import {Game} from "../model/game"
+import {Action, Position3D, Unit} from "../model/types"
+
 export const GRAVITATIONAL_FORCE_EQUIVALENT = 9.80665
 type Position = { x: number, y: number }
 type ProjectileMotionProblem = {
     // launch angle interval
     alpha: { min: number, max: number, divisions: number }
-    // max initial velocity
-    v0Max: number
+    // initial velocity constraints
+    v0: { min: number, max: number }
     // start point
     p0?: Position
     // end point
@@ -26,7 +29,7 @@ export class ProjectileMotion {
                     p0: {x: x0, y: y0} = {x: 0, y: 0},
                     p1: {x: x1, y: y1},
                     alpha,
-                    v0Max,
+                    v0,
                     constraints = []
                 }: ProjectileMotionProblem) {
         this.x0 = x0
@@ -48,7 +51,7 @@ export class ProjectileMotion {
         // Check mandatory height conditions if specified
         let constraintsCheck
         do {
-            const V0 = Math.min(v0Max, Math.sqrt(this.G * R * R / (2 * (R * Math.tan(alphas[i]) - H))) / Math.cos(alphas[i]))
+            const V0 = Math.max(v0.min, Math.min(v0.max, Math.sqrt(this.G * R * R / (2 * (R * Math.tan(alphas[i]) - H))) / Math.cos(alphas[i])))
             this.V0x = V0 * Math.cos(alphas[i])
             this.V0y = V0 * Math.sin(alphas[i])
 
@@ -77,4 +80,37 @@ export class ProjectileMotion {
             y: y0 + V0y * t - G * t * t / 2
         }
     }
+}
+
+export class BowMotion extends ProjectileMotion {
+    constructor(game: Game, action: Action, from: Position3D, to: Position3D) {
+        const V0Max = Math.sqrt(GRAVITATIONAL_FORCE_EQUIVALENT * action.range.max)
+
+        const constraints = computeIntermediatePoints(game, action.source, to, 3)
+            .map((i) => ({
+                x: game.world.distanceBetween(from, i),
+                y: i.y - from.y
+            }))
+
+        super({
+            p1: {x: game.world.distanceBetween(from, to), y: to.y - from.y},
+            alpha: {min: Math.PI / 6, max: Math.PI * 7 / 16, divisions: 5},
+            v0: {min: 0, max: V0Max},
+            constraints
+        })
+    }
+}
+
+const computeIntermediatePoints = (game: Game, unit: Unit, p1: Position3D, subdivisions: number) => {
+    const p0 = game.getState(unit).position
+    const delta = Math.max(Math.abs(p1.z - p0.z), Math.abs(p1.x - p0.x))
+    const dx = (p1.x - p0.x) / delta, dz = (p1.z - p0.z) / delta
+    const points = []
+    for (let i = 1; i < delta * subdivisions; i++) {
+        const x = p0.x + i * dx / subdivisions
+        const z = p0.z + i * dz / subdivisions
+        const y = game.world.getHeight(Math.round(x), Math.round((z)))
+        points.push({x, y, z})
+    }
+    return points
 }

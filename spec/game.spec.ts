@@ -90,7 +90,7 @@ describe('game', () => {
 
         const positions = gameService.getReachablePositionsForAction(game, new AttackAction(game.units[0]))
 
-        expect(positions.length).toBe(7)
+        expect(positions.length).toBe(8)
         expect(positions).toContainEqual({x: 0, y: 1, z: 0})
         expect(positions).toContainEqual({x: 0, y: 2, z: 1})
         expect(positions).toContainEqual({x: 0, y: 2, z: 2})

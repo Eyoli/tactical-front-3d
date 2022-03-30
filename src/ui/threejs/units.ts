@@ -28,7 +28,7 @@ const computeChildrenIds = (mesh: Object3D) => {
 }
 
 export class UnitView {
-    readonly mesh: Object3D
+    readonly mesh: Mesh
     readonly unit: Unit
     readonly player: Player
     readonly idle: AnimationAction
@@ -36,7 +36,7 @@ export class UnitView {
     private move?: AnimationAction
     private attack?: AnimationAction
 
-    constructor(unit: Unit, player: Player, mesh: Object3D, idleAnimationClip: AnimationClip) {
+    constructor(unit: Unit, player: Player, mesh: Mesh, idleAnimationClip: AnimationClip) {
         this.mesh = mesh
         this.unit = unit
         this.player = player
@@ -101,6 +101,13 @@ export class UnitView {
         object.attack?.setLoop(LoopOnce, 0)
         object.attack?.play()
         return mixer
+    }
+
+    die = () => {
+        const material = (this.mesh.material as MeshStandardMaterial)
+        material.color.set('#aaaaaa')
+        material.needsUpdate = true
+        material.visible = true
     }
 
     update = (time: number) => {

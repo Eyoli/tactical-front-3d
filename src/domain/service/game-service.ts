@@ -1,6 +1,6 @@
 import {Action, ActionResult, Position2D, Position3D, Unit, UnitState} from "../model/types"
 import {ACTION_CANNOT_REACH_TARGET, UNIT_CANNOT_MOVE, UNIT_CANNOT_REACH_POSITION} from "../model/errors"
-import {GRAVITATIONAL_FORCE_EQUIVALENT, ProjectileMotion} from "../algorithm/trajectory"
+import {BowMotion} from "../algorithm/trajectory"
 import {Game} from "../model/game"
 import {WorldMapService} from "./world-map-service"
 import {EdgeFilter} from "../algorithm/path-finder"
@@ -80,54 +80,33 @@ export class GameService implements GamePort {
             throw new Error(ACTION_CANNOT_REACH_TARGET)
         }
 
-        const trajectory = computeTrajectory(game, action, p)
+        const trajectory = computeTrajectory(game, action, game.world.getPosition3D(p))
         const reachTarget = !trajectory || trajectory.reachTarget
         const newStates = new Map<Unit, UnitState>()
         if (reachTarget) {
             game.getUnits([p])
                 .forEach(unit => newStates.set(unit, action.modify(game.getState(unit))))
         }
+        newStates.set(action.source, (newStates.get(action.source) || game.getState(action.source)).act())
         return {newStates, trajectory}
     }
 
-    private computeTrajectory = (game: Game, action: Action, p: Position2D) => {
-        const {computeIntermediatePoints} = this
+    executeAction = (game: Game, action: Action, p: Position2D): ActionResult => {
+        const {previewAction} = this
+        const actionResult = previewAction(game, action, p)
+        actionResult.newStates.forEach((newState, unit) => game.getStates(unit).push(newState))
+        return actionResult
+    }
 
+    private computeTrajectory = (game: Game, action: Action, to: Position3D) => {
         if (!action.trajectory) return undefined
 
-        const p0 = game.getState(action.source).position
-        const p1 = game.world.getPosition3D(p)
-        const constraints = computeIntermediatePoints(game, action.source, p1, 3)
-            .map((i) => ({
-                x: game.world.distanceBetween(p0, i),
-                y: i.y - p0.y
-            }))
+        const from = game.getState(action.source).position
 
-        return new ProjectileMotion({
-            p1: {x: game.world.distanceBetween(p0, p1), y: p1.y - p0.y},
-            alpha: {min: Math.PI / 6, max: Math.PI * 7 / 16, divisions: 5},
-            v0Max: Math.sqrt(GRAVITATIONAL_FORCE_EQUIVALENT * action.range.max),
-            constraints
-        })
-    }
-
-    executeAction = (game: Game, action: Action, p: Position2D) => {
-        const {previewAction} = this
-        previewAction(game, action, p).newStates.forEach((newState, unit) => game.getStates(unit).push(newState))
-        game.getStates(action.source).push(game.getState(action.source).act())
-    }
-
-    computeIntermediatePoints = (game: Game, unit: Unit, p1: Position3D, subdivisions: number) => {
-        const p0 = game.getState(unit).position
-        const delta = Math.max(Math.abs(p1.z - p0.z), Math.abs(p1.x - p0.x))
-        const dx = (p1.x - p0.x) / delta, dz = (p1.z - p0.z) / delta
-        const points = []
-        for (let i = 1; i < delta * subdivisions; i++) {
-            const x = p0.x + i * dx / subdivisions
-            const z = p0.z + i * dz / subdivisions
-            const y = game.world.getHeight(Math.round(x), Math.round((z)))
-            points.push({x, y, z})
+        if (action.trajectory === 'bow') {
+            return new BowMotion(game, action, from, to)
         }
-        return points
+
+        return undefined
     }
 }

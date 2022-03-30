@@ -1,5 +1,6 @@
 import {Graph} from "../algorithm/path-finder"
 import {Position2D, Position3D} from "./types"
+import {randomInRange} from "../algorithm/probability"
 
 /**
  * World map specific for projectiles. Indeed they don't really care about terrain.
@@ -23,10 +24,12 @@ export class WorldMap implements Graph<Position3D, number> {
     private readonly chunkSliceSize: number
     private readonly chunks = new Map<string, Uint8Array>()
     private readonly voxelCostMap = new Map<number, number>()
+    readonly waterLevel: number
 
-    constructor(chunkSize: number) {
+    constructor(chunkSize: number, waterLevel: number = 0) {
         this.chunkSize = chunkSize
         this.chunkSliceSize = chunkSize * chunkSize
+        this.waterLevel = waterLevel
     }
 
     getNeighbours = ({x, z}: Position3D): Position3D[] => {
@@ -39,7 +42,11 @@ export class WorldMap implements Graph<Position3D, number> {
         ].filter(p => getVoxel({x: p.x, y: p.y - 1, z: p.z}) !== 0)
     }
 
-    costBetween = (p1: Position3D, p2: Position3D): number => this.voxelCostMap.get(this.getVoxel(p2)) ?? 1
+    costBetween = (p1: Position3D, p2: Position3D): number => {
+        if (p2.y < this.waterLevel) return 99
+        if (p2.y === this.waterLevel) return 2
+        return this.voxelCostMap.get(this.getVoxel(p2)) || 1
+    }
 
     distanceBetween = ({x: x1, z: z1}: Position3D, {x: x2, z: z2}: Position3D): number => {
         return Math.sqrt((x2 - x1) * (x2 - x1) + (z2 - z1) * (z2 - z1))
@@ -117,6 +124,21 @@ export class WorldMap implements Graph<Position3D, number> {
         const cellY = Math.floor(y / chunkSize)
         const cellZ = Math.floor(z / chunkSize)
         return `${cellX},${cellY},${cellZ}`
+    }
+
+    getRandomPosition = (xMin: number, zMin: number, xMax: number, zMax: number): Position2D => {
+        const validPositions: Position2D[] = []
+        for (let x = xMin; x < xMax; x++) {
+            for (let z = zMin; z < zMax; z++) {
+                const y = this.getHeight(x, z)
+                if (y >= this.waterLevel) {
+                    validPositions.push({x, z})
+                }
+            }
+        }
+
+        if (validPositions.length === 0) throw new Error("No valid position available")
+        return validPositions[randomInRange(0, validPositions.length - 1)]
     }
 
     private createChunk = (p: Position3D) => {

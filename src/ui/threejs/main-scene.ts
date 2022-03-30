@@ -52,9 +52,11 @@ export class MainScene {
         this.scene = scene
         this.camera = camera
         this.controls = controls
+
+        this.addWater(gameScene.game.world.waterLevel)
     }
 
-    addWater() {
+    addWater(level: number = 0) {
         const waterGeometry = new PlaneGeometry(1000, 1000)
 
         const water = new Water(
@@ -74,6 +76,7 @@ export class MainScene {
         )
 
         water.rotation.x = -Math.PI / 2
+        water.position.y = level + 0.5
 
         this.scene.add(water)
         this.water = water

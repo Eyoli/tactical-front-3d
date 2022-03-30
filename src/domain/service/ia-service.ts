@@ -4,6 +4,7 @@ import {ActionDetail, ActionType, Turn} from "../model/ia"
 import {GameService} from "./game-service"
 import {Position2D, Position3D, Unit} from "../model/types"
 import {Weapon} from "../model/weapons"
+import {BowMotion} from "../algorithm/trajectory"
 
 const gamePort: GamePort = new GameService()
 
@@ -14,8 +15,8 @@ const isPositionWithinWeaponRange = (weapon: Weapon, game: Game, pUnit: Position
 
 const getFirstTargetWithinRange = (unit: Unit, accessiblePositions: Position3D[], game: Game, potentialTargets: Unit[]): Unit | undefined => potentialTargets
     .find((target) => {
-        const pUnit = game.getState(target).position
-        return accessiblePositions.findIndex(isPositionWithinWeaponRange.bind(null, unit.weapon, game, pUnit)) > -1
+        const targetState = game.getState(target)
+        return !targetState.dead && accessiblePositions.findIndex(isPositionWithinWeaponRange.bind(null, unit.weapon, game, targetState.position)) > -1
     })
 /**
  * We look for a valid target. First we try to find a target within weapon range, else we take the first possible target

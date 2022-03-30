@@ -109,9 +109,21 @@ export class Game {
     }
 
     nextTurn = () => {
-        const activeUnit = this.getActiveUnit()
-        this.getStates(activeUnit).push(this.getState(activeUnit).endTurn())
-        this.activeUnitIndex = (this.activeUnitIndex + 1) % this.units.length
+        const {getActiveUnit, getStates, getState} = this
+        const activeUnit = getActiveUnit()
+        getStates(activeUnit).push(getState(activeUnit).endTurn())
+
+        const numberOfTeamsAlive = Array.from(this.playersUnits.entries())
+            .filter(value => value[1].find(unit => !getState(unit).dead) || false)
+            .length
+        if (numberOfTeamsAlive < 2) throw new Error("Game is over")
+
+        let c = 0
+        do {
+            this.activeUnitIndex = (this.activeUnitIndex + 1) % this.units.length
+            c++
+        } while (c < this.units.length && this.getState(this.getActiveUnit()).dead)
+
         const newActiveUnit = this.getActiveUnit()
         this.getStates(newActiveUnit).push(this.getState(newActiveUnit).startTurn())
         console.log('New turn: ', this.getActiveUnit(), this.getActivePlayer())
