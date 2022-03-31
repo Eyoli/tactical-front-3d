@@ -2,9 +2,9 @@ import {GamePort, IAPort} from "../ports"
 import {Game} from "../model/game"
 import {ActionDetail, ActionType, Turn} from "../model/ia"
 import {GameService} from "./game-service"
-import {Position2D, Position3D, Unit} from "../model/types"
+import {AttackAction, Position2D, Position3D, Unit} from "../model/types"
 import {Weapon} from "../model/weapons"
-import {BowMotion} from "../algorithm/trajectory"
+import {BowMotion} from "../algorithm/trajectory";
 
 const gamePort: GamePort = new GameService()
 
@@ -63,25 +63,33 @@ export class IAService implements IAPort {
         switch (unit.type) {
             case "warrior":
             case "archer":
-                const actions: ActionDetail[] = []
+                const details: ActionDetail[] = []
                 if (target) {
                     const pTarget = game.getState(target).position
                     let pUnit = game.getState(unit).position
 
                     // If we can't reach our target, we try to move closer
-                    if(accessiblePositions.length > 0 && !isPositionWithinWeaponRange(unit.weapon, game, pUnit, pTarget)) {
+                    if (accessiblePositions.length > 0 && !isPositionWithinWeaponRange(unit.weapon, game, pUnit, pTarget)) {
                         pUnit = getClosestPositionToTarget(unit, accessiblePositions, target, game)
-                        actions.push({type: "move" as ActionType, position: {x: pUnit.x, z: pUnit.z} as Position2D})
+                        details.push({type: "move" as ActionType, position: {x: pUnit.x, z: pUnit.z} as Position2D})
                     }
 
                     // If we can reach our target (with or without moving toward it), we attack it
                     if (isPositionWithinWeaponRange(unit.weapon, game, pUnit, pTarget)) {
-                        actions.push({type: "attack", target})
+                        const action = new AttackAction(unit)
+                        const reachTarget = (action.trajectory === "bow") ? new BowMotion(game, action, pUnit, pTarget).reachTarget : true
+                        if (reachTarget) {
+                            details.push({
+                                type: "attack",
+                                action,
+                                position: {x: pTarget.x, z: pTarget.z},
+                            })
+                        }
                     }
                 }
 
                 return {
-                    actions: actions.values()
+                    actions: details.values()
                 }
         }
     }

@@ -35,9 +35,9 @@ export class RangeView {
         parent.add(this.rangeLayer)
     }
 
-    draw = (unitView: UnitView, positions: Position3D[]) => {
+    draw = (color: string, positions: Position3D[]) => {
         this.clear()
-        positions.map(p => createTileSelectionMesh(unitView.player.color, p)).forEach(mesh => this.rangeLayer.add(mesh))
+        positions.map(p => createTileSelectionMesh(color, p)).forEach(mesh => this.rangeLayer.add(mesh))
     }
 
     clear() {
@@ -60,14 +60,13 @@ export class TrajectoryView {
     private pNb = 30
     private trajectory?: ProjectileMotion
 
-    draw = (source: UnitView, target: Object3D, trajectory: ProjectileMotion) => {
+    draw = (source: UnitView, to: Vector3, trajectory: ProjectileMotion) => {
         const {pNb, group, clear} = this
 
         clear()
 
-        const p0 = source.mesh.position
-        const p1 = target.position
-        const horizontalVector = new Vector2(p1.x - p0.x, p1.z - p0.z)
+        const from = source.mesh.position
+        const horizontalVector = new Vector2(to.x - from.x, to.z - from.z)
         const points = []
         for (let i = 0; i < pNb; i++) {
             const point = new Mesh(new SphereGeometry(0.1), new MeshStandardMaterial({roughness: 0}))

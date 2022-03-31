@@ -18,7 +18,6 @@ import {Sky} from "three/examples/jsm/objects/Sky"
 
 const clock = new Clock()
 
-
 export class MainScene {
     private readonly gameScene: GameScene
     readonly scene: Scene

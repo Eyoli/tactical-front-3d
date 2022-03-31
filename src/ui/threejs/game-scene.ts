@@ -8,6 +8,7 @@ import {GameService} from "../../domain/service/game-service"
 import {GamePort} from "../../domain/ports"
 import {IAManager} from "./ia"
 import {Target} from "./types"
+import {toVector3} from "./utility";
 
 type GameSceneProps = {
     game: Game,
@@ -130,43 +131,40 @@ export class GameScene {
 
     getTarget = (intersects: Intersection[]): Target | undefined => {
         const {game} = this
-        const unitView = intersects.map(i => Array.from(this.unitsToMesh.values()).find((unitMesh) => unitMesh.childrenIds.indexOf(i.object.uuid) > 0)).find(i => i != undefined)
+        const unitView = intersects
+            .map(i => Array.from(this.unitsToMesh.values())
+                .find((unitMesh) => unitMesh.childrenIds.indexOf(i.object.uuid) > 0))
+            .find(i => i != undefined)
         if (unitView) {
             return {
-                object: unitView.mesh,
                 position: gamePort.getPosition(game, unitView.unit),
                 unitView
             }
         } else if (intersects.length > 0) {
             return {
-                object: intersects[0].object,
                 position: game.world.getClosestPositionInWorld({x: intersects[0].point.x, z: intersects[0].point.z})
             }
         }
         return undefined
     }
 
-    handleUnitMove = (p: Position2D, onAnimationFinished: () => void) => {
+    moveSelectedUnitTo = (p: Position2D): Promise<void> => {
         const {game, _callbacks, rangeView, _selectedUnit, select} = this
 
+
         if (!_selectedUnit) {
-            console.log('No unit has been selected')
-            return
+            return Promise.reject('No unit has been selected')
         }
 
         // Verify that a path exists between the locations
         const path = gamePort.moveUnit(game, _selectedUnit.unit, p)
         if (!path) {
-            console.log(`Impossible to move unit (id=${_selectedUnit.unit.id}) to`, p, 'no path found')
-            return
+            return Promise.reject(`Impossible to move unit (id=${_selectedUnit.unit.id}) to ${p} : no path found`)
         }
 
         rangeView.clear()
 
         console.log(`Moving unit (id=${_selectedUnit.unit.id}) to`, p)
-
-        const mixer = _selectedUnit.startMovingToward(path, 5)
-        mixer.addEventListener('finished', onAnimationFinished)
 
         const state = game.getState(_selectedUnit.unit)
         const callback = _callbacks.get('select')
@@ -175,9 +173,11 @@ export class GameScene {
         }
 
         select(_selectedUnit)
+
+        return _selectedUnit.startMovingToward(path, 5)
     }
 
-    previewUnitAction = (target: Target) => {
+    previewSelectedAction = (target: Target) => {
         const {game, _callbacks, rangeView, _selectedUnit, _selectedAction, trajectoryView} = this
 
         if (!_selectedUnit) throw new Error("No selected unit")
@@ -197,15 +197,15 @@ export class GameScene {
             })))
         }
 
-        actionResult.trajectory && trajectoryView.draw(_selectedUnit, target.object, actionResult.trajectory)
+        actionResult.trajectory && trajectoryView.draw(_selectedUnit, toVector3(target.position), actionResult.trajectory)
         rangeView.clear()
-        rangeView.draw(_selectedUnit, [state.position])
-        target.unitView && rangeView.draw(target.unitView, [game.getState(target.unitView.unit).position])
+        rangeView.draw(_selectedUnit.player.color, [state.position])
+        rangeView.draw('#000000', [target.position])
 
         this._mode = "preview"
     }
 
-    executeUnitAction = (target: Target, onAnimationFinished: () => void) => {
+    executeSelectedAction = (target: Target): Promise<void> => {
         const {
             game,
             _callbacks,
@@ -217,8 +217,8 @@ export class GameScene {
             getUnitViewFromUnit
         } = this
 
-        if (!_selectedUnit) throw new Error("No selected unit")
-        if (!_selectedAction) throw new Error("No selected action")
+        if (!_selectedUnit) return Promise.reject("No selected unit")
+        if (!_selectedAction) return Promise.reject("No selected action")
 
         const actionResult = gamePort.executeAction(game, _selectedAction, target.position)
         actionResult.newStates.forEach((newState, unit) => {
@@ -238,19 +238,15 @@ export class GameScene {
         }
 
         rangeView.clear()
-        const mixer = _selectedUnit.startAttacking(target.object, trajectoryView, 1)
-        mixer.addEventListener('finished', () => {
-            trajectoryView.clear()
-            onAnimationFinished()
-        })
-
         select(_selectedUnit)
+
+        return _selectedUnit.startAttacking(toVector3(target.position), trajectoryView, 1)
     }
 
-    private handleMoveActionSelection = (unitView: UnitView) => {
+    private selectMoveAction = (unitView: UnitView) => {
         const {game, rangeView, _callbacks} = this
 
-        rangeView.draw(unitView, gamePort.getReachablePositions(game, unitView.unit))
+        rangeView.draw(unitView.player.color, gamePort.getReachablePositions(game, unitView.unit))
 
         const state = game.getState(unitView.unit)
         const callback = _callbacks.get('select')
@@ -262,12 +258,12 @@ export class GameScene {
         this._selectedUnit = unitView
     }
 
-    handleActionSelection = (unitView: UnitView, action: Action) => {
+    selectAction = (unitView: UnitView, action: Action) => {
         const {game, rangeView, _callbacks} = this
 
         console.log('Displaying attack range', unitView)
 
-        rangeView.draw(unitView, gamePort.getReachablePositionsForAction(game, action))
+        rangeView.draw(unitView.player.color, gamePort.getReachablePositionsForAction(game, action))
 
         const state = game.getState(unitView.unit)
         const callback = _callbacks.get('select')
@@ -285,14 +281,14 @@ export class GameScene {
         this._mode = "attack"
         if (this._selectedUnit) {
             const action = new AttackAction(this._selectedUnit.unit)
-            this.handleActionSelection(this._selectedUnit, action)
+            this.selectAction(this._selectedUnit, action)
         }
     }
 
     moveMode = () => {
         this._mode = "move"
         if (this._selectedUnit) {
-            this.handleMoveActionSelection(this._selectedUnit)
+            this.selectMoveAction(this._selectedUnit)
         }
     }
 
@@ -320,7 +316,7 @@ export class GameScene {
         if (callback && state) {
             callback(unitView, state)
         }
-        this.rangeView.draw(unitView, [state.position])
+        this.rangeView.draw(unitView.player.color, [state.position])
         this._mode = undefined
         this._selectedAction = undefined
         this._selectedUnit = unitView
@@ -344,10 +340,10 @@ export class GameScene {
             _frozen,
             select,
             unselect,
-            previewUnitAction,
-            executeUnitAction,
+            previewSelectedAction,
+            executeSelectedAction,
             getTarget,
-            handleUnitMove
+            moveSelectedUnitTo
         } = this
         const target = getTarget(intersects)
         if (target) {
@@ -355,10 +351,10 @@ export class GameScene {
                 if (_selectedUnit === target?.unitView) {
                     unselect()
                 } else if (_mode === "attack") {
-                    previewUnitAction(target)
+                    previewSelectedAction(target)
                 } else if (_mode === "preview") {
                     this._frozen = true
-                    executeUnitAction(target, () => {
+                    executeSelectedAction(target).then(() => {
                         trajectoryView.clear()
                         this._frozen = false
                     })
@@ -366,7 +362,7 @@ export class GameScene {
                     trajectoryView.clear()
                     const p = game.world.getClosestPositionInWorld({x: intersects[0].point.x, z: intersects[0].point.z})
                     this._frozen = true
-                    handleUnitMove(p, () => this._frozen = false)
+                    moveSelectedUnitTo(p).then(() => this._frozen = false)
                 }
             } else {
                 target.unitView && select(target.unitView)

@@ -36,16 +36,14 @@ describe('ia services', () => {
             type: "move",
             position: {x: 0, z: 1}
         }
-        const expectedAttack: ActionDetail = {
-            type: "attack",
-            target
-        }
 
         // Start by moving closer to the target
         expect(actions.actions.next().value).toStrictEqual(expectedMove)
 
         // Then attack the target
-        expect(actions.actions.next().value).toStrictEqual(expectedAttack)
+        const attack: ActionDetail = actions.actions.next().value
+        expect(attack.type).toStrictEqual("attack")
+        expect(attack.position).toStrictEqual({x: 0, z: 0})
 
         // No further action to iterate over
         expect(actions.actions.next().done).toBe(true)
@@ -64,13 +62,11 @@ describe('ia services', () => {
             .start()
 
         const actions = iaService.computeBestTurnActions(game, iaUnit)
-        const expectedAttack: ActionDetail = {
-            type: "attack",
-            target
-        }
 
         // Start by attacking the target
-        expect(actions.actions.next().value).toStrictEqual(expectedAttack)
+        const attack = actions.actions.next().value
+        expect(attack.type).toStrictEqual("attack")
+        expect(attack.position).toStrictEqual({x: 0, z: 0})
 
         // No further action to iterate over
         expect(actions.actions.next().done).toBe(true)

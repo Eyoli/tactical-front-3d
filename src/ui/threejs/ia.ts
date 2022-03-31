@@ -19,32 +19,31 @@ export class IAManager {
         this.handleAction(unitView, turn.actions)
     }
 
-    private handleAction = (unitView: UnitView, actions: IterableIterator<ActionDetail>) => {
+    private handleAction = (unitView: UnitView, details: IterableIterator<ActionDetail>) => {
         const {gameScene, handleAction} = this
         const {game} = gameScene
-        const itResult = actions.next()
+        const itResult = details.next()
         if (!itResult.done) {
-            const action = itResult.value
-            if (action.type === "move") {
+            const detail = itResult.value
+            if (detail.type === "move") {
                 // We execute the move
-                gameScene.handleUnitMove(action.position!, () => this.handleAction(unitView, actions))
-            } else if (action.type === "attack" && action.target) {
+                gameScene.moveSelectedUnitTo(detail.position!)
+                    .then(() => this.handleAction(unitView, details))
+            } else if (detail.type === "attack" && detail.action) {
                 // We execute the attack
-                const targetUnitView = gameScene.getUnitViewFromUnit(action.target)
                 const target: Target = {
-                    object: targetUnitView.mesh,
-                    position: game.getState(action.target).position,
-                    unitView: targetUnitView
+                    position: game.world.getPosition3D(detail.position),
                 }
                 const attackAction = new AttackAction(unitView.unit)
-                gameScene.handleActionSelection(unitView, attackAction)
+                gameScene.selectAction(unitView, attackAction)
                 delay(gameScene.delay)
-                    .then(() => gameScene.previewUnitAction(target))
+                    .then(() => gameScene.previewSelectedAction(target))
                     .then(() => delay(gameScene.delay))
-                    .then(() => gameScene.executeUnitAction(target, () => this.handleAction(unitView, actions)))
+                    .then(() => gameScene.executeSelectedAction(target))
+                    .then(() => this.handleAction(unitView, details))
             } else {
                 // We can't do anything with this kind of action, so we proceed to the next one
-                handleAction(unitView, actions)
+                handleAction(unitView, details)
             }
         } else {
             gameScene.endTurn()

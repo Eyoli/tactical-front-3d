@@ -71,10 +71,13 @@ export class UnitView {
         object.move.setLoop(LoopOnce, 0)
 
         object.move?.play()
-        return mixer
+
+        return new Promise<void>(resolve => {
+            mixer.addEventListener('finished', () => resolve())
+        })
     }
 
-    startAttacking = (target: Object3D, trajectoryView: TrajectoryView, duration: number) => {
+    startAttacking = (target: Vector3, trajectoryView: TrajectoryView, duration: number) => {
         const object = this
 
         let mixer: AnimationMixer
@@ -83,13 +86,8 @@ export class UnitView {
             mixer = computed.mixer
             object.attack = computed.action
         } else {
-            const values: number[] = [], times: number[] = []
-            times.push(0)
-            values.push(object.mesh.position.x, object.mesh.position.y, object.mesh.position.z)
-            times.push(duration / 2)
-            values.push(target.position.x, target.position.y, target.position.z)
-            times.push(duration)
-            values.push(object.mesh.position.x, object.mesh.position.y, object.mesh.position.z)
+            const values = [object.mesh.position, target, object.mesh.position].flatMap(p => [p.x, p.y, p.z])
+            const times = [0, duration / 2, duration]
 
             const vectorKF = new VectorKeyframeTrack('.position', times, values)
             const animationClip = new AnimationClip('attack', -1, [vectorKF])
@@ -100,14 +98,17 @@ export class UnitView {
 
         object.attack?.setLoop(LoopOnce, 0)
         object.attack?.play()
-        return mixer
+
+        return new Promise<void>(resolve => {
+            mixer.addEventListener('finished', () => {
+                trajectoryView.clear()
+                resolve()
+            })
+        })
     }
 
     die = () => {
-        const material = (this.mesh.material as MeshStandardMaterial)
-        material.color.set('#aaaaaa')
-        material.needsUpdate = true
-        material.visible = true
+        this.mesh.visible = false
     }
 
     update = (time: number) => {
@@ -118,6 +119,11 @@ export class UnitView {
 }
 
 export const initUnit = (unit: Unit, p: Position3D, player: Player): UnitView => {
+    if (unit.type === "warrior") return initWarrior(unit, p, player)
+    return initArcher(unit, p, player)
+}
+
+const initWarrior = (unit: Unit, p: Position3D, player: Player): UnitView => {
     const mesh = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshStandardMaterial({roughness: 0, color: player.color}))
     const parent = new Mesh()
     parent.position.set(p.x, p.y, p.z)
@@ -126,9 +132,34 @@ export const initUnit = (unit: Unit, p: Position3D, player: Player): UnitView =>
 
     // animations
     const xAxis = new Vector3(1, 0, 0)
-    const qInitial = new Quaternion().setFromAxisAngle(xAxis, 0)
-    const qFinal = new Quaternion().setFromAxisAngle(xAxis, Math.PI)
-    const quaternionKF = new QuaternionKeyframeTrack('.children[0].quaternion', [0, 1, 2], [qInitial.x, qInitial.y, qInitial.z, qInitial.w, qFinal.x, qFinal.y, qFinal.z, qFinal.w, qInitial.x, qInitial.y, qInitial.z, qInitial.w])
+    const values = [
+        new Quaternion().setFromAxisAngle(xAxis, 0),
+        new Quaternion().setFromAxisAngle(xAxis, Math.PI),
+        new Quaternion().setFromAxisAngle(xAxis, 2 * Math.PI),
+    ].flatMap(quaternionKF => [quaternionKF.x, quaternionKF.y, quaternionKF.z, quaternionKF.w])
+
+    const quaternionKF = new QuaternionKeyframeTrack('.children[0].quaternion', [0, 1, 2], values)
+    const idleAnimationClip = new AnimationClip('idle', -1, [quaternionKF])
+
+    return new UnitView(unit, player, parent, idleAnimationClip)
+}
+
+const initArcher = (unit: Unit, p: Position3D, player: Player): UnitView => {
+    const mesh = new Mesh(new BoxGeometry(0.4, 0.4, 0.4), new MeshStandardMaterial({roughness: 0, color: player.color}))
+    const parent = new Mesh()
+    parent.position.set(p.x, p.y, p.z)
+    mesh.position.set(0, 0.5, 0)
+    parent.add(mesh)
+
+    // animations
+    const xAxis = new Vector3(0, 1, 0)
+    const values = [
+        new Quaternion().setFromAxisAngle(xAxis, 0),
+        new Quaternion().setFromAxisAngle(xAxis, Math.PI),
+        new Quaternion().setFromAxisAngle(xAxis, 2 * Math.PI),
+    ].flatMap(quaternionKF => [quaternionKF.x, quaternionKF.y, quaternionKF.z, quaternionKF.w])
+
+    const quaternionKF = new QuaternionKeyframeTrack('.children[0].quaternion', [0, 0.5, 1], values)
     const idleAnimationClip = new AnimationClip('idle', -1, [quaternionKF])
 
     return new UnitView(unit, player, parent, idleAnimationClip)

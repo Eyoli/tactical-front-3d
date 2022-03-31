@@ -72,28 +72,28 @@ export class GameService implements GamePort {
         return p
     }
 
-    previewAction = (game: Game, action: Action, p: Position2D): ActionResult => {
+    previewAction = (game: Game, action: Action, target: Position2D): ActionResult => {
         const {computeTrajectory, getReachablePositionsForAction} = this
 
         // Verify that the action can be triggered
-        if (!isAccessible(p, getReachablePositionsForAction(game, action))) {
+        if (!isAccessible(target, getReachablePositionsForAction(game, action))) {
             throw new Error(ACTION_CANNOT_REACH_TARGET)
         }
 
-        const trajectory = computeTrajectory(game, action, game.world.getPosition3D(p))
+        const trajectory = computeTrajectory(game, action, game.world.getPosition3D(target))
         const reachTarget = !trajectory || trajectory.reachTarget
         const newStates = new Map<Unit, UnitState>()
         if (reachTarget) {
-            game.getUnits([p])
+            game.getUnits([target])
                 .forEach(unit => newStates.set(unit, action.modify(game.getState(unit))))
         }
         newStates.set(action.source, (newStates.get(action.source) || game.getState(action.source)).act())
         return {newStates, trajectory}
     }
 
-    executeAction = (game: Game, action: Action, p: Position2D): ActionResult => {
+    executeAction = (game: Game, action: Action, target: Position2D): ActionResult => {
         const {previewAction} = this
-        const actionResult = previewAction(game, action, p)
+        const actionResult = previewAction(game, action, target)
         actionResult.newStates.forEach((newState, unit) => game.getStates(unit).push(newState))
         return actionResult
     }
