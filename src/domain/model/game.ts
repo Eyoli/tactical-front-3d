@@ -79,11 +79,11 @@ export class Game {
         return Array.from(this.playersUnits.entries())
             .filter((entry) => entry[0] !== player)
             .map((entry) => entry[1])
-            .reduce((previous, current) => {
-                const next = (previous || [])
-                next.push(...current)
+            .reduce((previous: Unit[], current) => {
+                const next = previous
+                next.push(...current.filter(target => !this.getState(target).dead))
                 return next
-            })
+            }, [])
     }
 
     getStates = (unit: Unit): UnitState[] => {

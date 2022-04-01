@@ -17,6 +17,8 @@
     "author": "Grant Bartlett",
     "license": "MIT",
     "dependencies": {
+        "@types/d3": "^7.1.0",
+        "d3": "^7.4.0",
         "immutable": "^4.0.0",
         "lil-gui": "^0.15.0",
         "three": "^0.134.0"
