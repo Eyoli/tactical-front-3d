@@ -1,10 +1,10 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const WorkboxPlugin = require('workbox-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
-const { outputConfig, copyPluginPatterns, entryConfig, devServer } = require("./env.config");
+const {outputConfig, copyPluginPatterns, entryConfig, devServer} = require("./env.config");
 
-module.exports = (env, options) => 
-{
+module.exports = (env, options) => {
     return {
         mode: options.mode,
         entry: entryConfig,
@@ -65,7 +65,7 @@ module.exports = (env, options) =>
                 },
             ],
         },
-        resolve: { extensions: [".tsx", ".ts", ".js"] },
+        resolve: {extensions: [".tsx", ".ts", ".js"]},
         output: {
             filename: "js/[name].bundle.js",
             path: path.resolve(__dirname, outputConfig.destPath),
@@ -75,9 +75,16 @@ module.exports = (env, options) =>
             new HtmlWebpackPlugin({
                 template: "./src/index.html",
                 inject: true,
-                minify: false
+                minify: false,
+                title: 'Progressive Web Application',
             }),
             new CopyPlugin(copyPluginPatterns),
+            new WorkboxPlugin.GenerateSW({
+                // these options encourage the ServiceWorkers to get in there fast
+                // and not allow any straggling "old" SWs to hang around
+                clientsClaim: true,
+                skipWaiting: true,
+            })
         ]
     };
 };
