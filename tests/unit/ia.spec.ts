@@ -1,9 +1,9 @@
-import {GameBuilder} from "../src/domain/model/game"
-import {Player, Unit, UnitType} from "../src/domain/model/types"
-import {IAPort} from "../src/domain/ports"
-import {IAService} from "../src/domain/service/ia-service"
-import {initWorldMap} from "./common"
-import {ActionDetail} from "../src/domain/model/ia"
+import {GameBuilder} from "../../src/domain/model/game"
+import {Player, Unit, UnitType} from "../../src/domain/model/types"
+import {IAPort} from "../../src/domain/ports"
+import {IAService} from "../../src/domain/service/ia-service"
+import {initWorldMap} from "../common"
+import {ActionDetail} from "../../src/domain/model/ia"
 
 const iaService: IAPort = new IAService()
 

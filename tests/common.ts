@@ -1,5 +1,4 @@
 import {WorldMap} from "../src/domain/model/world-map"
-import {Unit} from "../src/domain/model/types"
 
 export const initWorldMap = (chunkSize: number, heightmap?: number[][], data?: number[][]) => {
     const worldMap = new WorldMap(chunkSize)

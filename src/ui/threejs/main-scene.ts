@@ -115,8 +115,8 @@ export class MainScene {
         scene.environment = pmremGenerator.fromScene(this.sky as any as Scene).texture
     }
 
-    generateChunk = (x: number, y: number, z: number) => {
-        this.gameScene.generateChunk(x, y, z)
+    generateChunk = () => {
+        this.gameScene.generateChunk()
         this.gameScene.generateUnits()
     }
 

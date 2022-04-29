@@ -1,35 +1,112 @@
-import {Graph} from "../algorithm/path-finder"
+import {EdgeFilter, Graph, PathFinder} from "../algorithm/path-finder"
 import {Position2D, Position3D} from "./types"
 import {randomInRange} from "../algorithm/probability"
+
+const getCandidates = <N, K>(graph: Graph<N, K>, start: N, startCost: number, filter?: EdgeFilter<N>) => {
+    let candidates = graph.getNeighbours(start)
+    if (filter) {
+        candidates = candidates.filter(neighbour => filter(start, neighbour))
+    }
+    return candidates.map(value => ({
+        node: value,
+        cost: startCost + graph.costBetween(start, value)
+    }))
+}
 
 /**
  * World map specific for projectiles. Indeed they don't really care about terrain.
  */
-export class ProjectileWorldMap implements Graph<Position3D, number> {
+export class ProjectileGraph<N, K> implements Graph<N, K> {
 
-    constructor(private readonly worldMap: WorldMap) {
+    constructor(
+        private readonly graph: Graph<N, K>) {
     }
 
-    costBetween = (node: Position3D, neighbour: Position3D) => this.worldMap.distanceBetween(node, neighbour)
+    costBetween = (node: N, neighbour: N) => this.graph.distanceBetween(node, neighbour)
 
-    distanceBetween = (node1: Position3D, node2: Position3D) => this.worldMap.distanceBetween(node1, node2)
+    distanceBetween = (node1: N, node2: N) => this.graph.distanceBetween(node1, node2)
 
-    getNeighbours = (p: Position3D): Position3D[] => this.worldMap.getNeighbours(p)
+    getNeighbours = (p: N): N[] => this.graph.getNeighbours(p)
 
-    getNodeKey = (node: Position3D) => this.worldMap.getNodeKey(node)
+    getNodeKey = (node: N) => this.graph.getNodeKey(node)
 }
 
 export class WorldMap implements Graph<Position3D, number> {
-    readonly chunkSize: number
-    private readonly chunkSliceSize: number
-    private readonly chunks = new Map<string, Uint8Array>()
-    private readonly voxelCostMap = new Map<number, number>()
-    readonly waterLevel: number
 
-    constructor(chunkSize: number, waterLevel: number = 0) {
-        this.chunkSize = chunkSize
+    private readonly chunkSliceSize: number
+    private readonly chunk: Uint8Array
+    private readonly voxelCostMap = new Map<number, number>()
+    private readonly projectileGraph: ProjectileGraph<Position3D, number>
+
+    constructor(
+        readonly chunkSize: number,
+        readonly waterLevel: number = 0
+    ) {
         this.chunkSliceSize = chunkSize * chunkSize
-        this.waterLevel = waterLevel
+        this.chunk = new Uint8Array(chunkSize * chunkSize * chunkSize)
+        this.projectileGraph = new ProjectileGraph(this)
+    }
+
+    getShortestPath(startNode: Position3D, endNode: Position3D, filter?: EdgeFilter<Position3D>): PathFinder<Position3D, number> {
+        return new PathFinder(this, startNode, endNode, filter)
+    }
+
+    getAccessibleNodes(start: Position3D, minCost: number, maxCost: number, filter?: EdgeFilter<Position3D>): Position3D[] {
+        const accessiblePositions: Position3D[] = []
+        const tested: Position3D[] = []
+        const candidates = [{node: start, cost: 0}]
+        let n = 0
+        while (candidates.length > 0) {
+            const candidate = candidates.shift()!
+            const nodeKey = this.getNodeKey(candidate.node)
+            const isAlreadyTested = tested.find(node => nodeKey === this.getNodeKey(node))
+            if (candidate.cost <= maxCost && !isAlreadyTested) {
+                tested.push(candidate.node)
+                if (candidate.cost >= minCost) {
+                    accessiblePositions.push(candidate.node)
+                }
+                const newCandidates = getCandidates(this, candidate.node, candidate.cost, filter)
+                candidates.push(...newCandidates)
+            }
+            n++
+        }
+
+        return accessiblePositions
+    }
+
+    getNodesAccessibleByFlight(start: Position3D, minCost: number, maxCost: number, filter?: EdgeFilter<Position3D>): Position3D[] {
+        const {projectileGraph} = this
+
+        const accessiblePositions: Position3D[] = []
+        const tested: Position3D[] = []
+        const candidates = [{node: start, cost: 0}]
+        let n = 0
+        while (candidates.length > 0) {
+            const candidate = candidates.shift()!
+            const nodeKey = projectileGraph.getNodeKey(candidate.node)
+            const isAlreadyTested = tested.find(node => nodeKey === projectileGraph.getNodeKey(node))
+            const d = projectileGraph.distanceBetween(start, candidate.node)
+            if (d <= maxCost && !isAlreadyTested) {
+                tested.push(candidate.node)
+                if (d >= minCost) {
+                    accessiblePositions.push(candidate.node)
+                }
+                const newCandidates = getCandidates(projectileGraph, candidate.node, d, filter)
+                candidates.push(...newCandidates)
+            }
+            n++
+        }
+
+        return accessiblePositions
+    }
+
+    getClosestPositionInWorld = ({x, z}: Position2D): Position3D => {
+        const ix = Math.floor(x), iz = Math.floor(z)
+        return {
+            x: ix,
+            y: this.getHeight(ix, iz),
+            z: iz
+        }
     }
 
     getNeighbours = ({x, z}: Position3D): Position3D[] => {
@@ -57,19 +134,11 @@ export class WorldMap implements Graph<Position3D, number> {
         const voxelX = x % chunkSize | 0
         const voxelY = y % chunkSize | 0
         const voxelZ = z % chunkSize | 0
-        return voxelY * chunkSliceSize +
-            voxelZ * chunkSize +
-            voxelX
+        return voxelY * chunkSliceSize + voxelZ * chunkSize + voxelX
     }
 
-    setVoxel = (p: Position3D, v: number, createChunk = true) => {
-        let chunk = this.getChunk(this.computeChunkId(p))
-        if (!chunk) {
-            if (!createChunk) {
-                return
-            }
-            chunk = this.createChunk(p)
-        }
+    setVoxel = (p: Position3D, v: number) => {
+        const {chunk} = this
         const voxelOffset = this.getNodeKey(p)
         chunk[voxelOffset] = v
     }
@@ -78,7 +147,7 @@ export class WorldMap implements Graph<Position3D, number> {
         map.forEach((cost, voxelValue) => this.voxelCostMap.set(voxelValue, cost))
 
     getVoxel = (p: Position3D) => {
-        const chunk = this.getChunk(this.computeChunkId(p))
+        const {chunk} = this
         if (!chunk) {
             return 0
         }
@@ -87,10 +156,7 @@ export class WorldMap implements Graph<Position3D, number> {
     }
 
     getHeight = (x: number, z: number) => {
-        const chunk = this.getChunk(this.computeChunkId({x, y: 0, z}))
-        if (!chunk) {
-            return 0
-        }
+        const {chunk} = this
         let y = 0
         let height = 0
         while (y < this.chunkSize) {
@@ -103,28 +169,11 @@ export class WorldMap implements Graph<Position3D, number> {
         return height + 1
     }
 
-    getClosestPositionInWorld = ({x, z}: Position2D): Position3D => {
-        const ix = Math.floor(x), iz = Math.floor(z)
-        return {
-            x: ix,
-            y: this.getHeight(ix, iz),
-            z: iz
-        }
-    }
-
-    getPosition3D = ({x, z}: Position2D) => ({
+    getHeighestPosition = ({x, z}: Position2D) => ({
         x: x,
         y: this.getHeight(x, z),
         z: z
     })
-
-    computeChunkId = ({x, y, z}: Position3D) => {
-        const {chunkSize} = this
-        const cellX = Math.floor(x / chunkSize)
-        const cellY = Math.floor(y / chunkSize)
-        const cellZ = Math.floor(z / chunkSize)
-        return `${cellX},${cellY},${cellZ}`
-    }
 
     getRandomPosition = (xMin: number, zMin: number, xMax: number, zMax: number): Position2D => {
         const validPositions: Position2D[] = []
@@ -139,22 +188,5 @@ export class WorldMap implements Graph<Position3D, number> {
 
         if (validPositions.length === 0) throw new Error("No valid position available")
         return validPositions[randomInRange(0, validPositions.length - 1)]
-    }
-
-    private createChunk = (p: Position3D) => {
-        const chunkId = this.computeChunkId(p)
-        let cell = this.getChunk(chunkId)
-        if (!cell) {
-            const {chunkSize} = this
-            cell = new Uint8Array(chunkSize * chunkSize * chunkSize)
-            this.setCellForVoxel(chunkId, cell)
-        }
-        return cell
-    }
-
-    private getChunk = (chunkId: string): Uint8Array | undefined => this.chunks.get(chunkId)
-
-    private setCellForVoxel = (chunkId: string, cell: Uint8Array) => {
-        this.chunks.set(chunkId, cell)
     }
 }

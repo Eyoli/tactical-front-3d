@@ -117,7 +117,7 @@ function main() {
     mainScene.addSky(10, renderer, pmremGenerator)
 
     // 0,0,0 will generate
-    mainScene.generateChunk(0, 0, 0)
+    mainScene.generateChunk()
 
     function render() {
         requestAnimationFrame(render)

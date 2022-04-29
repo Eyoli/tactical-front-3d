@@ -1,6 +1,15 @@
-import {ProjectileWorldMap, WorldMap} from "./world-map"
-import {Player, Position2D, Position3D, Unit, UnitState} from "./types"
-import {NO_ACTIVE_PLAYER, PLAYER_NOT_ADDED_BEFORE_UNIT, UNIT_WITHOUT_STATE} from "./errors"
+import {Action, Player, Position2D, Position3D, Unit, UnitState} from "./types"
+import {
+    ACTION_CANNOT_REACH_TARGET,
+    NO_ACTIVE_PLAYER,
+    PLAYER_NOT_ADDED_BEFORE_UNIT,
+    UNIT_CANNOT_MOVE,
+    UNIT_CANNOT_REACH_POSITION,
+    UNIT_WITHOUT_STATE
+} from "./errors"
+import {BowMotion} from "../algorithm/trajectory";
+import {EdgeFilter} from "../algorithm/path-finder";
+import {WorldMap} from "./world-map";
 
 const last = <T>(array: T[]): T => array[array.length - 1]
 
@@ -11,7 +20,7 @@ export class GameBuilder {
     private readonly players: Player[] = []
     private readonly playersUnits = new Map<Player, Map<Unit, Position3D>>()
 
-    constructor(readonly worldMap: WorldMap) {
+    constructor(readonly world: WorldMap) {
     }
 
     addPlayers = (...players: Player[]) => {
@@ -21,25 +30,24 @@ export class GameBuilder {
     }
 
     addUnit = (newUnit: Unit, p: Position2D, player: Player) => {
-        const {worldMap, playersUnits, units} = this
+        const {world, playersUnits, units} = this
         const playerUnits = playersUnits.get(player)
         if (!playerUnits) {
             throw new Error(PLAYER_NOT_ADDED_BEFORE_UNIT)
         }
 
         units.push(newUnit)
-        playerUnits.set(newUnit, worldMap.getPosition3D(p))
+        playerUnits.set(newUnit, world.getHeighestPosition(p))
         return this
     }
 
     start = () => {
-        const {worldMap, units, playersUnits} = this
-        return new Game(worldMap, units, playersUnits)
+        const {world, units, playersUnits} = this
+        return new Game(world, units, playersUnits)
     }
 }
 
 export class Game {
-    readonly projectileWorldMap: ProjectileWorldMap
     private readonly unitsState = new Map<Unit, UnitState[]>()
     readonly playersUnits = new Map<Player, Unit[]>()
     private readonly unitPlayer = new Map<Unit, Player>()
@@ -48,7 +56,7 @@ export class Game {
     constructor(
         readonly world: WorldMap,
         readonly units: Unit[], gameInit: GameInit) {
-        this.projectileWorldMap = new ProjectileWorldMap(world)
+
         gameInit.forEach(
             (unitsInit, player) => {
                 this.playersUnits.set(player, Array.from(unitsInit.keys()))
@@ -128,4 +136,102 @@ export class Game {
         this.getStates(newActiveUnit).push(this.getState(newActiveUnit).startTurn())
         console.log('New turn: ', this.getActiveUnit(), this.getActivePlayer())
     }
+
+    getPosition = (unit: Unit) => {
+        const p = this.getState(unit)?.position
+        if (!p) throw new Error(`Unit (id=${unit.id}) without position`)
+        return p
+    }
+
+    moveUnit = (unit: Unit, p: Position2D) => {
+        const {world, getReachablePositions, getPosition} = this
+
+        // Verify that the unit can move
+        if (!this.getState(unit).canMove) {
+            throw new Error(UNIT_CANNOT_MOVE)
+        }
+
+        const from = getPosition(unit)
+        const to = world.getHeighestPosition(p)
+
+        // Verify that the position can be accessed
+        if (!isAccessible(p, getReachablePositions(unit))) {
+            throw new Error(UNIT_CANNOT_REACH_POSITION)
+        }
+
+        const pathFinder = world.getShortestPath(from, to, edgeFilter(unit.jump, this.getPositions()))
+        const result = pathFinder.find()
+        if (result.path) {
+            const lastState = this.getState(unit)
+            this.getStates(unit).push(lastState.moveTo(to))
+        }
+        return result.path
+    }
+
+    previewAction = (action: Action, target: Position2D) => {
+        const {getReachablePositionsForAction, getState, getUnits} = this
+
+        // Verify that the action can be triggered
+        if (!isAccessible(target, getReachablePositionsForAction(action))) {
+            throw new Error(ACTION_CANNOT_REACH_TARGET)
+        }
+
+        const trajectory = computeTrajectory(this, action, this.world.getHeighestPosition(target))
+        const reachTarget = !trajectory || trajectory.reachTarget
+        const newStates = new Map<Unit, UnitState>()
+        if (reachTarget) {
+            getUnits([target])
+                .forEach(unit => newStates.set(unit, action.modify(getState(unit))))
+        }
+        newStates.set(action.source, (newStates.get(action.source) || getState(action.source)).act())
+        return {newStates, trajectory}
+    }
+
+    executeAction = (action: Action, target: Position2D) => {
+        const {previewAction, getStates} = this
+        const actionResult = previewAction(action, target)
+        actionResult.newStates.forEach((newState, unit) => getStates(unit).push(newState))
+        return actionResult
+    }
+
+    getReachablePositionsForAction = (action: Action, start?: Position3D) => {
+        const {world, getPosition} = this
+
+        // If start is not specified, or if we can't find source unit position, we stop here
+        let p = start ?? getPosition(action.source)
+
+        return world.getNodesAccessibleByFlight(
+            p,
+            action.range.min,
+            action.range.max,
+            edgeFilter(action.range.vMax, []))
+    }
+
+    getReachablePositions = (unit: Unit) => {
+        const {world, getPosition, getPositions} = this
+
+        let p = getPosition(unit)
+        return world.getAccessibleNodes(
+            p,
+            1,
+            unit.moves,
+            edgeFilter(unit.jump, getPositions()))
+    }
+}
+
+const isAccessible = (p2D: Position2D, p3Ds: Position3D[]) => p3Ds.find(p => p.x === p2D.x && p.z === p2D.z)
+
+const edgeFilter = (vMax: number, occupied: Position3D[]): EdgeFilter<Position3D> => (p1, p2) => !occupied.find(p => p.x === p2.x && p.z === p2.z)
+    && Math.abs(p2.y - p1.y) <= vMax
+
+const computeTrajectory = (game: Game, action: Action, to: Position3D) => {
+    if (!action.trajectory) return undefined
+
+    const from = game.getState(action.source).position
+
+    if (action.trajectory === 'bow') {
+        return new BowMotion(game, action, from, to)
+    }
+
+    return undefined
 }

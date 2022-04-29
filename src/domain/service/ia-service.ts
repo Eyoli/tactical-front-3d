@@ -1,12 +1,9 @@
-import {GamePort, IAPort} from "../ports"
+import {IAPort} from "../ports"
 import {Game} from "../model/game"
 import {ActionDetail, ActionType, Turn} from "../model/ia"
-import {GameService} from "./game-service"
 import {AttackAction, Position2D, Position3D, Unit} from "../model/types"
 import {Weapon} from "../model/weapons"
 import {BowMotion} from "../algorithm/trajectory";
-
-const gamePort: GamePort = new GameService()
 
 const isPositionWithinWeaponRange = (weapon: Weapon, game: Game, pUnit: Position3D, pTarget: Position3D) => {
     const d = game.world.distanceBetween(pTarget, pUnit)
@@ -55,7 +52,7 @@ const getClosestPositionToTarget = (unit: Unit, accessiblePositions: Position3D[
 export class IAService implements IAPort {
 
     computeBestTurnActions(game: Game, unit: Unit): Turn {
-        const accessiblePositions = gamePort.getReachablePositions(game, unit)
+        const accessiblePositions = game.getReachablePositions(unit)
 
         const potentialTargets = game.getPotentialTargets(unit)
         const target = getFirstTargetWithinRange(unit, accessiblePositions, game, potentialTargets) || potentialTargets.find(() => true)

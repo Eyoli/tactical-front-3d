@@ -32,7 +32,7 @@ export class IAManager {
             } else if (detail.type === "attack" && detail.action) {
                 // We execute the attack
                 const target: Target = {
-                    position: game.world.getPosition3D(detail.position),
+                    position: game.world.getHeighestPosition(detail.position),
                 }
                 const attackAction = new AttackAction(unitView.unit)
                 gameScene.selectAction(unitView, attackAction)
