@@ -148,7 +148,9 @@ export class WorldMap implements Graph<Position3D, number> {
 
     getVoxel = (p: Position3D) => {
         const {chunk, chunkSize, getNodeKey} = this
-        if (p.x < 0 || p.y < 0 || p.x >= chunkSize || p.y >= chunkSize) return 0
+        if (p.x < 0 || p.z < 0 || p.x >= chunkSize || p.z >= chunkSize) {
+            return 0
+        }
         const voxelKey = getNodeKey(p)
         return chunk[voxelKey]
     }

@@ -28,6 +28,11 @@ class NodeState<N> {
 export type PositionMapping<P, N> = (p: P) => N
 export type EdgeFilter<N> = (n1: N, n2: N) => boolean
 
+export const NO_PATH = {
+    path: undefined,
+    cost: Infinity
+}
+
 export class PathFinder<N, K> {
     readonly graph: Graph<N, K>
     readonly startNode: N
@@ -128,6 +133,6 @@ export class PathFinder<N, K> {
             return {path: shortestPath, cost: totalCost}
         }
 
-        return {path: undefined, cost: Infinity}
+        return NO_PATH
     }
 }

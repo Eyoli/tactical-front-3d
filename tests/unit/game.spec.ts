@@ -1,32 +1,24 @@
-import {GameBuilder} from "../../src/domain/model/game"
+import {Game, GameBuilder} from "../../src/domain/model/game"
 import {AttackAction, Player, Unit} from "../../src/domain/model/types"
 import {UNIT_CANNOT_MOVE} from "../../src/domain/model/errors"
 import {initWorldMap} from "../common"
 
-describe('game', () => {
-
-    it('should find the shortest path between two locations', () => {
-        const world = initWorldMap(10)
-
-        const pathFinder = world.getShortestPath({x: 0, y: 1, z: 0}, {x: 5, y: 1, z: 5})
-        const result = pathFinder.find()
-
-        expect(result.path?.length).toBe(11)
-    })
+describe('Game', () => {
 
     it('should select a unit and move it', () => {
         const worldMap = initWorldMap(10)
         const player: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
+        const unit = aUnit()
         const game = new GameBuilder(worldMap)
             .addPlayers(player)
-            .addUnit(aUnit(), {x: 1, z: 1}, player)
+            .addUnit(unit, {x: 1, z: 1}, player)
             .start()
 
-        game.moveUnit(game.units[0], {x: 1, z: 2})
+        game.moveUnit(unit, {x: 1, z: 2})
 
-        const state = game.getState(game.units[0])
+        const state = game.getState(unit)
         expect(state.position).toStrictEqual({x: 1, y: 1, z: 2})
-        expect(state.canMove).toStrictEqual(false)
+        expectUnitToNotBeAbleToMove(unit, game)
     })
 
     it('should take into account forbidden positions', () => {
@@ -34,13 +26,21 @@ describe('game', () => {
         const player: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
         const game = new GameBuilder(worldMap)
             .addPlayers(player)
-            .addUnit(aUnit(), {x: 1, z: 1}, player)
+            .addUnit(aUnit(10), {x: 1, z: 1}, player)
             .addUnit(aUnit(), {x: 0, z: 1}, player)
             .start()
 
         const positions = game.getReachablePositions(game.units[0])
 
-        expect(positions).not.toContainEqual({x: 0, y: 2, z: 1})
+        expect(positions).toMatchObject([
+            {x: 2, y: 2, z: 1},
+            {x: 1, y: 2, z: 2},
+            {x: 2, y: 2, z: 0},
+            {x: 2, y: 2, z: 2},
+            {x: 0, y: 2, z: 2},
+            {x: 1, y: 3, z: 0},
+            {x: 0, y: 2, z: 0}
+        ])
     })
 
     it('should get reachable positions for a given unit', () => {
@@ -53,10 +53,11 @@ describe('game', () => {
 
         const positions = game.getReachablePositions(game.units[0])
 
-        expect(positions.length).toBe(3)
-        expect(positions).toContainEqual({x: 0, y: 2, z: 1})
-        expect(positions).toContainEqual({x: 2, y: 2, z: 1})
-        expect(positions).toContainEqual({x: 1, y: 2, z: 2})
+        expect(positions).toMatchObject([
+            {x: 0, y: 2, z: 1},
+            {x: 2, y: 2, z: 1},
+            {x: 1, y: 2, z: 2},
+        ])
     })
 
     it('should get reachable positions for a given action', () => {
@@ -69,22 +70,27 @@ describe('game', () => {
 
         const positions = game.getReachablePositionsForAction(new AttackAction(game.units[0]))
 
-        expect(positions.length).toBe(8)
-        expect(positions).toContainEqual({x: 0, y: 1, z: 0})
-        expect(positions).toContainEqual({x: 0, y: 2, z: 1})
-        expect(positions).toContainEqual({x: 0, y: 2, z: 2})
-        expect(positions).toContainEqual({x: 1, y: 2, z: 2})
-        expect(positions).toContainEqual({x: 2, y: 2, z: 1})
-        expect(positions).toContainEqual({x: 2, y: 2, z: 2})
+        expect(positions).toMatchObject([
+            {x: 0, y: 2, z: 1},
+            {x: 2, y: 2, z: 1},
+            {x: 1, y: 2, z: 2},
+            {x: 0, y: 1, z: 0},
+            {x: 0, y: 2, z: 2},
+            {x: 2, y: 2, z: 0},
+            {x: 2, y: 2, z: 2},
+            {x: 1, y: 3, z: 0},
+        ])
     })
 
     it('should execute an action on a target', () => {
         const game = aGameWithFlatWorldAndTwoPlayers()
+        const unit1 = game.units[0]
+        const unit2 = game.units[1]
 
-        game.executeAction(new AttackAction(game.units[0]), {x: 1, z: 2})
+        game.executeAction(new AttackAction(unit1), {x: 1, z: 2})
 
-        expect(game.getState(game.units[0]).hp).toEqual(10)
-        expect(game.getState(game.units[1]).hp).toEqual(9)
+        expect(game.getState(unit1).hp).toEqual(10)
+        expect(game.getState(unit2).hp).toEqual(9)
     })
 
     it('should manage correctly the ability to move', () => {
@@ -92,37 +98,37 @@ describe('game', () => {
         const unit1 = game.units[0]
         const unit2 = game.units[1]
 
-        expect(game.getState(unit1).canMove).toEqual(true)
-        expect(game.getState(unit2).canMove).toEqual(false)
+        expectUnitToBeAbleToMove(unit1, game)
+        expectUnitToNotBeAbleToMove(unit2, game)
 
         game.moveUnit(unit1, {x: 1, z: 0})
-        expect(game.getState(unit1).canMove).toEqual(false)
-        expect(game.getState(unit2).canMove).toEqual(false)
+        expectUnitToNotBeAbleToMove(unit1, game)
+        expectUnitToNotBeAbleToMove(unit2, game)
         expect(() => game.moveUnit(unit1, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
         expect(() => game.moveUnit(unit2, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
 
         game.nextTurn()
-        expect(game.getState(unit1).canMove).toEqual(false)
-        expect(game.getState(unit2).canMove).toEqual(true)
-        expect(() => game.moveUnit(unit1, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
+        expectUnitToNotBeAbleToMove(unit1, game)
+        expectUnitToBeAbleToMove(unit2, game)
 
         game.moveUnit(unit2, {x: 0, z: 2})
-        expect(game.getState(unit1).canMove).toEqual(false)
-        expect(game.getState(unit2).canMove).toEqual(false)
-        expect(() => game.moveUnit(unit1, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
-        expect(() => game.moveUnit(unit2, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
+        expectUnitToNotBeAbleToMove(unit1, game)
+        expectUnitToNotBeAbleToMove(unit2, game)
 
         game.nextTurn()
-        expect(game.getState(unit1).canMove).toEqual(true)
-        expect(game.getState(unit2).canMove).toEqual(false)
+        expectUnitToBeAbleToMove(unit1, game)
+        expectUnitToNotBeAbleToMove(unit2, game)
     })
 })
 
-const aUnit = (): Unit => new Unit({
+const expectUnitToNotBeAbleToMove = (unit: Unit, game: Game) => expect(game.getState(unit).canMove).toEqual(false)
+const expectUnitToBeAbleToMove = (unit: Unit, game: Game) => expect(game.getState(unit).canMove).toEqual(true)
+
+const aUnit = (moves: number = 1): Unit => new Unit({
     id: 1,
     name: "",
     type: "warrior",
-    moves: 1,
+    moves,
     jump: 1,
     hp: 10,
     weapon: {range: {min: 1, max: 2, vMax: 1}, power: 1, area: 1}
