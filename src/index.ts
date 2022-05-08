@@ -48,7 +48,7 @@ function main() {
         8
     )
     worldGenerator.generate(worldMap)
-    const player1: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'ia'}
+    const player1: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
     const player2: Player = {id: 2, name: "P2", color: '#00ff00', mode: 'ia'}
     let id = 0
     const game = new GameBuilder(worldMap)
@@ -130,16 +130,16 @@ function main() {
     render()
 
     gameScene.startTurn()
-
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/service-worker.js').then(registration => {
-                console.log('SW registered: ', registration);
-            }).catch(registrationError => {
-                console.log('SW registration failed: ', registrationError);
-            });
-        });
-    }
 }
 
 main()
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js').then(registration => {
+            console.log('SW registered: ', registration);
+        }).catch(registrationError => {
+            console.log('SW registration failed: ', registrationError);
+        });
+    });
+}

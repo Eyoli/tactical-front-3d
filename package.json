@@ -7,7 +7,8 @@
     "dev": "webpack serve --mode development --progress --hot --config ./webpack.config.development.js",
     "dev-secure": "webpack serve --https --mode development --progress --hot --config ./webpack.config.development.js",
     "build": "webpack --mode production --config ./webpack.config.production.js",
-    "test": "jest"
+    "test": "jest",
+    "start": "http-server dist"
   },
   "keywords": [
     "three.js",
@@ -20,6 +21,7 @@
   "dependencies": {
     "@types/d3": "^7.1.0",
     "d3": "^7.4.0",
+    "http-server": "^14.1.0",
     "lil-gui": "^0.15.0",
     "three": "^0.134.0"
   },

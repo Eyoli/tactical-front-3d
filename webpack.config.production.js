@@ -1,13 +1,13 @@
 const path = require("path");
-const { CleanWebpackPlugin } = require("clean-webpack-plugin");
+const {CleanWebpackPlugin} = require("clean-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
 const TerserPlugin = require("terser-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const { outputConfig, copyPluginPatterns, scssConfig, entryConfig, terserPluginConfig } = require("./env.config");
+const {outputConfig, copyPluginPatterns, scssConfig, entryConfig, terserPluginConfig} = require("./env.config");
+const WorkboxPlugin = require("workbox-webpack-plugin");
 
-module.exports = (env, options) => 
-{
+module.exports = (env, options) => {
     return {
         mode: options.mode,
         entry: entryConfig,
@@ -61,7 +61,7 @@ module.exports = (env, options) =>
                 },
             ],
         },
-        resolve: { extensions: [".tsx", ".ts", ".js"] },
+        resolve: {extensions: [".tsx", ".ts", ".js"]},
         output: {
             filename: "js/[name].bundle.js",
             path: path.resolve(__dirname, outputConfig.destPath),
@@ -78,11 +78,17 @@ module.exports = (env, options) =>
         plugins: [
             new CleanWebpackPlugin(),
             new CopyPlugin(copyPluginPatterns),
-            new MiniCssExtractPlugin({ filename: scssConfig.destFileName }),
+            new MiniCssExtractPlugin({filename: scssConfig.destFileName}),
             new HtmlWebpackPlugin({
                 template: "./src/index.html",
                 inject: true,
                 minify: false
+            }),
+            new WorkboxPlugin.GenerateSW({
+                // these options encourage the ServiceWorkers to get in there fast
+                // and not allow any straggling "old" SWs to hang around
+                clientsClaim: true,
+                skipWaiting: true,
             }),
         ]
     };

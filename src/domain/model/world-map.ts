@@ -147,11 +147,9 @@ export class WorldMap implements Graph<Position3D, number> {
         map.forEach((cost, voxelValue) => this.voxelCostMap.set(voxelValue, cost))
 
     getVoxel = (p: Position3D) => {
-        const {chunk} = this
-        if (!chunk) {
-            return 0
-        }
-        const voxelKey = this.getNodeKey(p)
+        const {chunk, chunkSize, getNodeKey} = this
+        if (p.x < 0 || p.y < 0 || p.x >= chunkSize || p.y >= chunkSize) return 0
+        const voxelKey = getNodeKey(p)
         return chunk[voxelKey]
     }
 
