@@ -1,32 +1,63 @@
-import {ACESFilmicToneMapping, PerspectiveCamera, PMREMGenerator, WebGLRenderer} from 'three'
-import {GameScene} from './ui/threejs/game-scene'
+import {ACESFilmicToneMapping, Clock, PerspectiveCamera, Raycaster, Scene, WebGLRenderer} from 'three'
+import {GameView} from './ui/threejs/game-view'
 import {MainScene} from "./ui/threejs/main-scene"
 import {BasicWorldMapGenerator} from "./ui/threejs/world-map-generator"
 import {stats} from "./ui/monitoring/stats"
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
 import {GameBuilder} from "./domain/model/game"
 import {loadImprovedTexture} from "./ui/threejs/textures"
-import {WorldMap} from "./domain/model/world-map"
 import {Player, Unit} from "./domain/model/types"
 import {BOW} from "./domain/model/weapons"
 import {TacticalGUI} from "./ui/gui"
+import {SceneContext} from "./ui/threejs/context"
 
 function main() {
+    const cellSize = 16
+    const clock = new Clock()
+
+    const context = initSceneContext(cellSize)
+
+    // Texture
+    const textureInfos = loadImprovedTexture(render)
+
+    const game = initGame(cellSize)
+
+    const scene = new Scene()
+
+    const gameView = new GameView(game, scene, context, textureInfos, 200)
+    gameView.generateChunk()
+    gameView.generateUnits()
+
+    const mainScene = new MainScene(scene, context)
+    mainScene.addWater(gameView.game.world.waterLevel)
+    mainScene.addSky()
+
+    const gameGUI = new TacticalGUI(context.canvas, context.camera, gameView)
+
+    function render() {
+        requestAnimationFrame(render)
+        const delta = clock.getDelta()
+        mainScene.update(delta)
+        gameView.update(delta)
+
+        context.renderer.render(scene, context.camera)
+    }
+
+    stats()
+    render()
+
+    gameView.startTurn()
+}
+
+const initSceneContext = (cellSize: number) => {
     const renderer = new WebGLRenderer()
     renderer.setPixelRatio(window.devicePixelRatio)
     renderer.setSize(window.innerWidth, window.innerHeight)
     renderer.toneMapping = ACESFilmicToneMapping
     renderer.toneMappingExposure = 0.5
 
-    const pmremGenerator = new PMREMGenerator(renderer)
-
     const canvas = renderer.domElement
     document.body.append(canvas)
-
-    const cellSize = 16
-
-    // Texture
-    const textureInfos = loadImprovedTexture(render)
 
     // Camera
     const fov = 75
@@ -41,17 +72,25 @@ function main() {
     controls.target.set(cellSize / 2, cellSize / 3, cellSize / 2)
     controls.update()
 
-    const worldMap = new WorldMap(cellSize, 3)
+    return new SceneContext(
+        renderer,
+        camera,
+        controls,
+        new Raycaster()
+    )
+}
+
+const initGame = (cellSize: number) => {
     const worldGenerator = new BasicWorldMapGenerator(
         cellSize,
         cellSize,
         8
     )
-    worldGenerator.generate(worldMap)
+    const worldMap = worldGenerator.generate()
     const player1: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
     const player2: Player = {id: 2, name: "P2", color: '#00ff00', mode: 'ia'}
     let id = 0
-    const game = new GameBuilder(worldMap)
+    return new GameBuilder(worldMap)
         .addPlayers(player1, player2)
         .addUnit(new Unit({
             id: id++,
@@ -104,33 +143,8 @@ function main() {
             hp: 10,
             weapon: BOW(3, 10, 1)
         }), worldMap.getRandomPosition(0, 0, cellSize - 1, cellSize - 1), player2)
-        .start()
-    const gameScene = new GameScene({
-        game: game,
-        textureInfos,
-        delay: 200
-    })
-
-    const gameGUI = new TacticalGUI(gameScene, {title: "Game"})
-
-    const mainScene = new MainScene(gameScene, camera, controls)
-    mainScene.addSky(10, renderer, pmremGenerator)
-
-    // 0,0,0 will generate
-    mainScene.generateChunk()
-
-    function render() {
-        requestAnimationFrame(render)
-        mainScene.render(renderer)
-    }
-
-    renderer.domElement.addEventListener('mousedown', mainScene.raycast, false)
-
-    stats()
-    render()
-
-    gameScene.startTurn()
-}
+        .start();
+};
 
 main()
 

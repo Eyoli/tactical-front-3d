@@ -1,4 +1,4 @@
-import {BufferGeometry, Group, Intersection, Material, Mesh} from "three"
+import {BufferGeometry, Group, Intersection, Material, Mesh, Scene} from "three"
 import {Action, AttackAction, Position2D, Unit} from "../../domain/model/types"
 import {initUnit, UnitView} from "./units"
 import {TextureInfos, updateChunkGeometry} from "./textures"
@@ -6,13 +6,9 @@ import {Game} from "../../domain/model/game"
 import {RangeView, TrajectoryView} from "./views"
 import {IAManager} from "./ia"
 import {Target} from "./types"
-import {toVector3} from "./utility";
+import {toScreenPosition, toVector3} from "./utility";
+import {SceneContext} from "./context";
 
-type GameSceneProps = {
-    game: Game,
-    textureInfos: TextureInfos,
-    delay: number,
-}
 type SelectionMode = 'move' | 'attack' | 'preview'
 type GameEvent = 'select' | 'unselect' | 'preview'
 type GameEventCallback = (...args: any) => void
@@ -27,10 +23,7 @@ const neighborOffsets = [
     [0, 0, 1], // front
 ]
 
-export class GameScene {
-    readonly game: Game
-    readonly delay: number
-    private readonly textureInfos: TextureInfos
+export class GameView {
     private readonly worldMesh: Mesh<BufferGeometry, Material>
     private readonly unitsToMesh: Map<Unit, UnitView> = new Map<Unit, UnitView>()
     private readonly rangeView: RangeView
@@ -45,12 +38,15 @@ export class GameScene {
     private _mode?: SelectionMode
     private _frozen = false
 
-    constructor({game, textureInfos, delay}: GameSceneProps) {
-        this.game = game
-        this.textureInfos = textureInfos
-        this.delay = delay || 1000
-
+    constructor(
+        readonly game: Game,
+        scene: Scene,
+        private readonly context: SceneContext,
+        private readonly textureInfos: TextureInfos,
+        readonly delay: number = 1000
+    ) {
         this.parent = new Group()
+        scene.add((this.parent))
 
         this.unitLayer = new Group()
         this.unitLayer.position.set(0.5, 0, 0.5)
@@ -62,6 +58,8 @@ export class GameScene {
         this.worldMesh = new Mesh<BufferGeometry, Material>(new BufferGeometry(), this.textureInfos.material)
         this.parent.add(this.worldMesh)
         this.worldMesh.position.set(0, 0, 0)
+
+        context.renderer.domElement.addEventListener('mousedown', this.raycast, false)
     }
 
     generateChunk() {
@@ -232,7 +230,8 @@ export class GameScene {
         const state = game.getState(unitView.unit)
         const callback = _callbacks.get('select')
         if (callback && state) {
-            console.log('Selecting unit', unitView.unit, state)
+            const screenPosition = toScreenPosition(unitView.mesh, this.context.camera, this.context.canvas)
+            console.log('Selecting unit', unitView.unit, state, screenPosition)
             callback(unitView, state)
         }
 
@@ -348,6 +347,39 @@ export class GameScene {
             } else {
                 target.unitView && select(target.unitView)
             }
+        }
+    }
+
+    raycast = (e: MouseEvent) => {
+
+        if (e.button !== 0) {
+            return
+        }
+
+        const {camera, raycaster} = this.context
+        // 1. sets the mouse position with a coordinate system where the center
+        //   of the screen is the origin
+        const mouse = {
+            x: (e.clientX / window.innerWidth) * 2 - 1,
+            y: -(e.clientY / window.innerHeight) * 2 + 1
+        }
+
+        // 2. set the picking ray from the camera position and mouse coordinates
+        raycaster.setFromCamera(mouse, camera)
+
+        // 3. compute intersections (no 2nd parameter true anymore)
+        const intersects = raycaster.intersectObjects(this.parent.children, true)
+        if (intersects.length > 0) {
+            /*
+                An intersection has the following properties :
+                    - object : intersected object (THREE.Mesh)
+                    - distance : distance from camera to intersection (number)
+                    - face : intersected face (THREE.Face3)
+                    - faceIndex : intersected face index (number)
+                    - point : intersection point (THREE.Vector3)
+                    - uv : intersection point in the object's UV coordinates (THREE.Vector2)
+            */
+            this.handleLeftClick(intersects)
         }
     }
 }

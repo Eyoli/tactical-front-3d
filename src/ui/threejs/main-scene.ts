@@ -1,64 +1,72 @@
 import {
-    Clock,
     MathUtils,
-    PerspectiveCamera,
     PlaneGeometry,
     PMREMGenerator,
-    Raycaster,
     RepeatWrapping,
     Scene,
     TextureLoader,
     Vector3,
     WebGLRenderer
 } from "three"
-import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
-import {GameScene} from "./game-scene"
 import {Water} from "three/examples/jsm/objects/Water"
 import {Sky} from "three/examples/jsm/objects/Sky"
+import {SceneContext} from "./context";
+import {CSS3DObject} from "three/examples/jsm/renderers/CSS3DRenderer";
 
-const clock = new Clock()
+type SunConfiguration = {
+    turbidity: number,
+    rayleigh: number,
+    mieCoefficient: number,
+    mieDirectionalG: number,
+    elevation: number,
+    azimuth: number,
+    exposure: number
+}
 
 export class MainScene {
-    private readonly gameScene: GameScene
-    readonly scene: Scene
-    readonly camera: PerspectiveCamera
-    private readonly controls: OrbitControls
-    private readonly raycaster = new Raycaster()
 
-    private effectController = {
-        turbidity: 10,
-        rayleigh: 3,
-        mieCoefficient: 0.005,
-        mieDirectionalG: 0.7,
-        elevation: 1,
-        azimuth: 180,
-        exposure: 0.5
-    }
-
-    private water?: Water
-    private sky?: Sky
-    private sun?: Vector3
+    private waterView?: WaterView
+    private skyView?: SkyView
 
     constructor(
-        gameScene: GameScene,
-        camera: PerspectiveCamera,
-        controls: OrbitControls) {
-        this.gameScene = gameScene
+        private readonly scene: Scene,
+        private readonly context: SceneContext,
+    ) {
 
-        const scene = new Scene()
-        scene.add((gameScene.parent))
-
-        this.scene = scene
-        this.camera = camera
-        this.controls = controls
-
-        this.addWater(gameScene.game.world.waterLevel)
+        const element = document.createElement('div')
+        element.className = 'action'
+        element.textContent = "PLOP"
+        const actions = new CSS3DObject(element)
+        actions.position.set(0, 0, 0)
+        scene.add(actions)
     }
 
-    addWater(level: number = 0) {
-        const waterGeometry = new PlaneGeometry(1000, 1000)
+    addWater(waterLevel = 0) {
+        this.waterView = new WaterView(this.scene, waterLevel)
+    }
 
-        const water = new Water(
+    addSky() {
+        this.skyView = new SkyView(this.scene, this.context.renderer, this.context.pmremGenerator, {elevation: 10})
+        this.skyView.applyConfiguration()
+    }
+
+    update(delta: number) {
+
+        //if (this.sky && this.sun) {
+        // this.effectController.azimuth = (this.effectController.azimuth + 1) % 360
+        // this.updateSky(renderer)
+        //}
+        this.waterView?.update(delta, this.skyView?.sun)
+        this.context.controls.update()
+    }
+}
+
+class WaterView {
+    private readonly water: Water
+
+    constructor(scene: Scene, waterLevel = 0) {
+        const waterGeometry = new PlaneGeometry(1000, 1000)
+        this.water = new Water(
             waterGeometry,
             {
                 textureWidth: 512,
@@ -70,100 +78,86 @@ export class MainScene {
                 sunColor: 0xffffff,
                 waterColor: 0x001e0f,
                 distortionScale: 3.7,
-                fog: this.scene.fog !== undefined
+                fog: scene.fog !== undefined
             }
         )
 
-        water.rotation.x = -Math.PI / 2
-        water.position.y = level + 0.5
+        this.water.rotation.x = -Math.PI / 2
+        this.water.position.y = waterLevel + 0.5
 
-        this.scene.add(water)
-        this.water = water
+        scene.add(this.water)
     }
 
-    addSky(elevation: number, renderer: WebGLRenderer, pmremGenerator: PMREMGenerator) {
-        this.sky = new Sky()
+    update(delta: number, sun?: Vector3) {
+        sun && this.water.material.uniforms['sunDirection'].value.copy(sun).normalize()
+        this.water.material.uniforms['time'].value += 0.1 * delta
+    }
+}
+
+class SkyView {
+    private configuration: SunConfiguration
+
+    readonly sun = new Vector3()
+    readonly sky = new Sky()
+
+    constructor(
+        private readonly scene: Scene,
+        private readonly renderer: WebGLRenderer,
+        private readonly pmremGenerator: PMREMGenerator,
+        configuration?: {
+            turbidity?: number,
+            rayleigh?: number,
+            mieCoefficient?: number,
+            mieDirectionalG?: number,
+            elevation?: number,
+            azimuth?: number,
+            exposure?: number,
+        }) {
+        this.configuration = {
+            turbidity: 10,
+            rayleigh: 3,
+            mieCoefficient: 0.005,
+            mieDirectionalG: 0.7,
+            elevation: 1,
+            azimuth: 180,
+            exposure: 0.5,
+            ...configuration
+        }
         this.sky.scale.setScalar(10000)
         this.scene.add(this.sky)
-
-        this.sun = new Vector3()
-        this.effectController.elevation = elevation
-
-        this.updateSky(renderer, pmremGenerator)
     }
 
-    private updateSky = (renderer: WebGLRenderer, pmremGenerator: PMREMGenerator) => {
-        const {scene, sky, effectController, sun, water} = this
-
-        if (!sky || !sun || !pmremGenerator) return
-
-        const uniforms = sky.material.uniforms
-        uniforms['turbidity'].value = effectController.turbidity
-        uniforms['rayleigh'].value = effectController.rayleigh
-        uniforms['mieCoefficient'].value = effectController.mieCoefficient
-        uniforms['mieDirectionalG'].value = effectController.mieDirectionalG
-
-        const phi = MathUtils.degToRad(90 - effectController.elevation)
-        const theta = MathUtils.degToRad(effectController.azimuth)
-        sun.setFromSphericalCoords(1, phi, theta)
-
-        uniforms['sunPosition'].value.copy(sun)
-        water?.material.uniforms['sunDirection'].value.copy(sun).normalize()
-
-        renderer.toneMappingExposure = effectController.exposure
-
-        scene.environment = pmremGenerator.fromScene(this.sky as any as Scene).texture
+    updateConfiguration = (configuration: {
+        turbidity?: number,
+        rayleigh?: number,
+        mieCoefficient?: number,
+        mieDirectionalG?: number,
+        elevation?: number,
+        azimuth?: number,
+        exposure?: number,
+    }) => {
+        this.configuration = {...this.configuration, ...configuration}
     }
 
-    generateChunk = () => {
-        this.gameScene.generateChunk()
-        this.gameScene.generateUnits()
+    applyConfiguration = () => {
+        const uniforms = this.sky.material.uniforms
+        uniforms['turbidity'].value = this.configuration.turbidity
+        uniforms['rayleigh'].value = this.configuration.rayleigh
+        uniforms['mieCoefficient'].value = this.configuration.mieCoefficient
+        uniforms['mieDirectionalG'].value = this.configuration.mieDirectionalG
+
+        const phi = MathUtils.degToRad(90 - this.configuration.elevation)
+        const theta = MathUtils.degToRad(this.configuration.azimuth)
+        this.sun.setFromSphericalCoords(1, phi, theta)
+
+        uniforms['sunPosition'].value.copy(this.sun)
+
+        this.renderer.toneMappingExposure = this.configuration.exposure
+
+        this.scene.environment = this.pmremGenerator.fromScene(this.sky as any as Scene).texture
     }
 
-    render(renderer: WebGLRenderer) {
-        const delta = clock.getDelta()
-        if (this.water) this.water.material.uniforms['time'].value += 0.1 / 60.0
-
-        if (this.sky && this.sun) {
-            // this.effectController.azimuth = (this.effectController.azimuth + 1) % 360
-            // this.updateSky(renderer)
-        }
-
-        this.gameScene.update(delta)
-        this.controls.update()
-        renderer.render(this.scene, this.camera)
-    }
-
-    raycast = (e: MouseEvent) => {
-
-        if (e.button !== 0) {
-            return
-        }
-
-        const {scene, camera, raycaster, gameScene} = this
-        // 1. sets the mouse position with a coordinate system where the center
-        //   of the screen is the origin
-        const mouse = {
-            x: (e.clientX / window.innerWidth) * 2 - 1,
-            y: -(e.clientY / window.innerHeight) * 2 + 1
-        }
-
-        // 2. set the picking ray from the camera position and mouse coordinates
-        raycaster.setFromCamera(mouse, camera)
-
-        // 3. compute intersections (no 2nd parameter true anymore)
-        const intersects = raycaster.intersectObjects(scene.children, true)
-        if (intersects.length > 0) {
-            /*
-                An intersection has the following properties :
-                    - object : intersected object (THREE.Mesh)
-                    - distance : distance from camera to intersection (number)
-                    - face : intersected face (THREE.Face3)
-                    - faceIndex : intersected face index (number)
-                    - point : intersection point (THREE.Vector3)
-                    - uv : intersection point in the object's UV coordinates (THREE.Vector2)
-            */
-            gameScene.handleLeftClick(intersects)
-        }
+    update = () => {
+        this.configuration.azimuth = (this.configuration.azimuth + 1) % 360
     }
 }

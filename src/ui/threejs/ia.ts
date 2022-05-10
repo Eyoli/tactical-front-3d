@@ -1,7 +1,7 @@
 import {UnitView} from "./units"
 import {ActionDetail} from "../../domain/model/ia"
 import {delay} from "./utility"
-import {GameScene} from "./game-scene"
+import {GameView} from "./game-view"
 import {IAPort} from "../../domain/ports"
 import {IAService} from "../../domain/service/ia-service"
 import {Target} from "./types"
@@ -10,7 +10,7 @@ import {AttackAction} from "../../domain/model/types"
 const iaPort: IAPort = new IAService()
 
 export class IAManager {
-    constructor(private readonly gameScene: GameScene) {
+    constructor(private readonly gameScene: GameView) {
     }
 
     handleTurn = (unitView: UnitView) => {

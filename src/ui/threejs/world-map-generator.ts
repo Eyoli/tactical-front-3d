@@ -4,7 +4,7 @@ import {Delaunay} from "d3-delaunay"
 import {randomInRange} from "../../domain/algorithm/probability";
 
 export interface WorldMapGenerator {
-    generate: (worldMap: WorldMap) => void
+    generate: () => WorldMap
 }
 
 export class BasicWorldMapGenerator implements WorldMapGenerator {
@@ -21,14 +21,15 @@ export class BasicWorldMapGenerator implements WorldMapGenerator {
         this.maxHeight = maxHeight
     }
 
-    generate(worldMap: WorldMap, dx: number = 0, dy: number = 0, dz: number = 0): void {
+    generate(): WorldMap {
         const {length, width, maxHeight} = this
         const heightmap = generateTerrain(length, width, 4, 2, 1)
+        const worldMap = new WorldMap(length, 3)
 
         // Here we will have as many biomes as the number of points generated
         const biomesNumber = randomInRange(3, 10)
         let points = []
-        for(let i = 0; i < biomesNumber; i++) {
+        for (let i = 0; i < biomesNumber; i++) {
             points.push([randomInRange(0, length), randomInRange(0, width)])
         }
         const delaunay = Delaunay.from(points);
@@ -40,10 +41,12 @@ export class BasicWorldMapGenerator implements WorldMapGenerator {
                 const polygon = Array.from(voronoi.cellPolygons()).find(p => voronoi.contains(p.index, x, z))
                 for (let y = 0; y < maxHeight; ++y) {
                     if (polygon && y < height) {
-                        worldMap.setVoxel({x: dx + x, y: dy + y, z: dz + z}, 1 + polygon.index % 3)
+                        worldMap.setVoxel({x, y, z}, 1 + polygon.index % 3)
                     }
                 }
             }
         }
+
+        return worldMap
     }
 }
