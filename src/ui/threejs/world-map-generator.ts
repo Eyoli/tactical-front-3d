@@ -1,5 +1,5 @@
 import {generateTerrain} from "../../domain/algorithm/diamond-square"
-import {WorldMap} from "../../domain/model/world-map"
+import {WorldMap} from "../../domain/models/world-map"
 import {Delaunay} from "d3-delaunay"
 import {randomInRange} from "../../domain/algorithm/probability";
 

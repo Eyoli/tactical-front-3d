@@ -1,10 +1,10 @@
-import {Action, Position2D, Unit} from "./types"
+import {Action, Position3D} from "./types"
 
 export type ActionType = 'move' | 'attack'
 
 export type ActionDetail = {
     type: ActionType
-    position: Position2D
+    position: Position3D
     action?: Action
 }
 

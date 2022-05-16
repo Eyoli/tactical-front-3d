@@ -1,5 +1,5 @@
-import {initWorldMap} from "../common"
-import {NO_PATH} from "../../src/domain/algorithm/path-finder";
+import {initWorldMap} from "../../common"
+import {NO_PATH} from "../../../src/domain/algorithm/path-finder";
 
 describe('World', () => {
 

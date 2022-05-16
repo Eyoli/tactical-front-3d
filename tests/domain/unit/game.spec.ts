@@ -1,14 +1,14 @@
-import {Game, GameBuilder} from "../../src/domain/model/game"
-import {AttackAction, Player, Unit} from "../../src/domain/model/types"
-import {UNIT_CANNOT_MOVE} from "../../src/domain/model/errors"
-import {initWorldMap} from "../common"
+import {Game, GameBuilder} from "../../../src/domain/models/game"
+import {AttackAction, Player, Unit} from "../../../src/domain/models/types"
+import {UNIT_CANNOT_MOVE} from "../../../src/domain/models/errors"
+import {aGameWithFlatWorldAndTwoPlayers, aUnit, initWorldMap} from "../../common"
 
 describe('Game', () => {
 
     it('should select a unit and move it', () => {
         const worldMap = initWorldMap(10)
         const player: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
-        const unit = aUnit()
+        const unit = aUnit(1)
         const game = new GameBuilder(worldMap)
             .addPlayers(player)
             .addUnit(unit, {x: 1, z: 1}, player)
@@ -24,13 +24,14 @@ describe('Game', () => {
     it('should take into account forbidden positions', () => {
         const worldMap = initWorldMap(3, [[1, 1, 1], [2, 0, 1], [1, 1, 1]])
         const player: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
+        const unit1 = aUnit(1, "warrior", 10)
         const game = new GameBuilder(worldMap)
             .addPlayers(player)
-            .addUnit(aUnit(10), {x: 1, z: 1}, player)
-            .addUnit(aUnit(), {x: 0, z: 1}, player)
+            .addUnit(unit1, {x: 1, z: 1}, player)
+            .addUnit(aUnit(2), {x: 0, z: 1}, player)
             .start()
 
-        const positions = game.getReachablePositions(game.units[0])
+        const positions = game.getReachablePositions(unit1)
 
         expect(positions).toMatchObject([
             {x: 2, y: 2, z: 1},
@@ -48,7 +49,7 @@ describe('Game', () => {
         const player: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
         const game = new GameBuilder(worldMap)
             .addPlayers(player)
-            .addUnit(aUnit(), {x: 1, z: 1}, player)
+            .addUnit(aUnit(1), {x: 1, z: 1}, player)
             .start()
 
         const positions = game.getReachablePositions(game.units[0])
@@ -65,7 +66,7 @@ describe('Game', () => {
         const player: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
         const game = new GameBuilder(worldMap)
             .addPlayers(player)
-            .addUnit(aUnit(), {x: 1, z: 1}, player)
+            .addUnit(aUnit(1, "archer", 1, 1, 10), {x: 1, z: 1}, player)
             .start()
 
         const positions = game.getReachablePositionsForAction(new AttackAction(game.units[0]))
@@ -123,24 +124,3 @@ describe('Game', () => {
 
 const expectUnitToNotBeAbleToMove = (unit: Unit, game: Game) => expect(game.getState(unit).canMove).toEqual(false)
 const expectUnitToBeAbleToMove = (unit: Unit, game: Game) => expect(game.getState(unit).canMove).toEqual(true)
-
-const aUnit = (moves: number = 1): Unit => new Unit({
-    id: 1,
-    name: "",
-    type: "warrior",
-    moves,
-    jump: 1,
-    hp: 10,
-    weapon: {range: {min: 1, max: 2, vMax: 1}, power: 1, area: 1}
-})
-
-const aGameWithFlatWorldAndTwoPlayers = () => {
-    const worldMap = initWorldMap(3, [[1, 1, 1], [1, 1, 1], [1, 1, 1]])
-    const player1: Player = {id: 1, name: "P1", color: '#ff0000', mode: 'human'}
-    const player2: Player = {id: 1, name: "P2", color: '#00ff00', mode: 'human'}
-    return new GameBuilder(worldMap)
-        .addPlayers(player1, player2)
-        .addUnit(aUnit(), {x: 1, z: 1}, player1)
-        .addUnit(aUnit(), {x: 1, z: 2}, player2)
-        .start()
-}

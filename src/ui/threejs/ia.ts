@@ -1,52 +1,55 @@
-import {UnitView} from "./units"
-import {ActionDetail} from "../../domain/model/ia"
+import {ActionDetail} from "../../domain/models/ia"
 import {delay} from "./utility"
-import {GameView} from "./game-view"
 import {IAPort} from "../../domain/ports"
-import {IAService} from "../../domain/service/ia-service"
-import {Target} from "./types"
-import {AttackAction} from "../../domain/model/types"
+import {GameViewInterface, Target} from "../models/types"
+import {Game} from "../../domain/models/game";
+import {NothingSelectedState} from "../models/states/nothing-selected";
+import {GameState} from "../models/game-state";
 
-const iaPort: IAPort = new IAService()
 
 export class IAManager {
-    constructor(private readonly gameScene: GameView) {
+    constructor(
+        private readonly iaPort: IAPort,
+        private readonly delayDuration: number,
+    ) {
     }
 
-    handleTurn = (unitView: UnitView) => {
-        const {game} = this.gameScene
-        const turn = iaPort.computeBestTurnActions(game, unitView.unit)
-        this.handleAction(unitView, turn.actions)
+    handleTurn = (game: Game, gameView: GameViewInterface) => {
+        const activeUnit = game.getActiveUnit()
+        const turn = this.iaPort.computeBestTurnActions(game, activeUnit)
+        const initialState = new NothingSelectedState(game, gameView);
+        return this.handleAction(initialState, turn.actions)
     }
 
-    private handleAction = (unitView: UnitView, details: IterableIterator<ActionDetail>) => {
-        const {gameScene, handleAction} = this
-        const {game} = gameScene
+    private handleAction = (state: GameState, details: IterableIterator<ActionDetail>): Promise<GameState> => {
+        const {handleAction} = this
         const itResult = details.next()
         if (!itResult.done) {
             const detail = itResult.value
             if (detail.type === "move") {
                 // We execute the move
-                gameScene.moveSelectedUnitTo(detail.position!)
-                    .then(() => this.handleAction(unitView, details))
+                return state
+                    .triggerGUIAction("move")
+                    .then(moveSelectionState => delay(moveSelectionState, this.delayDuration))
+                    .then(moveSelectionState => moveSelectionState.clickOnTarget({position: detail.position!}))
             } else if (detail.type === "attack" && detail.action) {
                 // We execute the attack
                 const target: Target = {
-                    position: game.world.getHeighestPosition(detail.position),
+                    position: detail.position,
                 }
-                const attackAction = new AttackAction(unitView.unit)
-                gameScene.selectAction(unitView, attackAction)
-                delay(gameScene.delay)
-                    .then(() => gameScene.previewSelectedAction(target))
-                    .then(() => delay(gameScene.delay))
-                    .then(() => gameScene.executeSelectedAction(target))
-                    .then(() => this.handleAction(unitView, details))
+                return state
+                    .triggerGUIAction("attack")
+                    .then(actionTargetSelectionState => delay(actionTargetSelectionState, this.delayDuration))
+                    .then(actionTargetSelectionState => actionTargetSelectionState.clickOnTarget(target))
+                    .then(actionPreviewedState => delay(actionPreviewedState, this.delayDuration))
+                    .then(actionPreviewedState => actionPreviewedState.clickOnTarget(target))
+                    .then(() => handleAction(state, details))
             } else {
                 // We can't do anything with this kind of action, so we proceed to the next one
-                handleAction(unitView, details)
+                return handleAction(state, details)
             }
         } else {
-            gameScene.endTurn()
+            return state.triggerGUIAction("end")
         }
     }
 }

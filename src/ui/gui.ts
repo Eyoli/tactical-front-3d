@@ -1,8 +1,7 @@
 import GUI from "lil-gui"
-import {UnitView} from "./threejs/units"
-import {UnitState} from "../domain/model/types"
-import {GameView} from "./threejs/game-view"
+import {Unit, UnitState} from "../domain/models/types"
 import {Camera, Scene} from "three";
+import {GameManager} from "./models/game-manager";
 
 export class TacticalGUI {
 
@@ -11,16 +10,9 @@ export class TacticalGUI {
     private actionsGUI?: GUI
 
     constructor(
-        parent: HTMLElement,
         private readonly camera: Camera,
-        private readonly gameView: GameView,
+        private readonly gameManager: GameManager,
     ) {
-        gameView.on('select', (unitView, state) => {
-            this.showUnitState(unitView, state)
-            this.showUnitActions(state)
-        })
-        gameView.on('unselect', this.unselectUnit)
-
         this.scene = new Scene()
         this.actionsGUI = new GUI({title: "Actions"})
     }
@@ -30,8 +22,7 @@ export class TacticalGUI {
         this.actionsGUI?.destroy()
     }
 
-    showUnitState = (unitView: UnitView, state: UnitState) => {
-        const unit = unitView?.unit
+    showUnitState = (unit: Unit, state: UnitState) => {
         console.log('Update unit state', unit, state)
 
         if (unit) {
@@ -48,13 +39,33 @@ export class TacticalGUI {
         }
     }
 
-    showUnitActions = (state: UnitState) => {
-        this.actionsGUI?.destroy()
-        this.actionsGUI = new GUI({title: 'Actions'})
-        this.actionsGUI?.domElement.style.setProperty('top', '250px')
+    showUnitActions = (state: UnitState, isActiveUnit: boolean) => {
+        if (isActiveUnit) {
+            this.actionsGUI?.destroy()
+            this.actionsGUI = new GUI({title: 'Actions'})
+            this.actionsGUI?.domElement.style.setProperty('top', '250px')
 
-        state.canMove && this.actionsGUI?.add(this.gameView, 'moveMode').name('Move')
-        state.canAct && this.actionsGUI?.add(this.gameView, 'attackMode').name('Attack')
-        this.actionsGUI?.add(this.gameView, 'endTurn').name('End turn')
+            if (state.canMove) {
+                this.actionsGUI?.add(this, 'move').name('Move')
+            }
+
+            if (state.canAct) {
+                this.actionsGUI?.add(this, 'attack').name('Attack')
+            }
+
+            this.actionsGUI?.add(this, 'endTurn').name('End turn')
+        }
+    }
+
+    move = async () => {
+        await this.gameManager.triggerGUIAction("move")
+    }
+
+    attack = async () => {
+        await this.gameManager.triggerGUIAction("attack")
+    }
+
+    endTurn = async () => {
+        await this.gameManager.triggerGUIAction("end")
     }
 }

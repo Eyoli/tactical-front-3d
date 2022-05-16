@@ -1,4 +1,4 @@
-import {Position3D} from "../../domain/model/types"
+import {Position3D} from "../../domain/models/types"
 import {
     AnimationAction,
     AnimationClip,

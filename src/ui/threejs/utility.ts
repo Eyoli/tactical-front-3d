@@ -1,5 +1,5 @@
 import {Camera, Object3D, Vector2, Vector3} from "three"
-import {Position3D} from "../../domain/model/types"
+import {Position3D} from "../../domain/models/types"
 
 export const toScreenPosition = (object: Object3D, camera: Camera, canvas: HTMLCanvasElement): Vector2 => {
     const vector = new Vector3()
@@ -18,7 +18,7 @@ export const toScreenPosition = (object: Object3D, camera: Camera, canvas: HTMLC
 
 export const toVector3 = ({x, y, z}: Position3D) => new Vector3(x, y, z)
 
-export const delay = (ms: number): Promise<void> =>
+export const delay = <T>(param: T, ms: number): Promise<T> =>
     new Promise((resolve): void => {
-        setTimeout(resolve, ms)
+        setTimeout(() => resolve(param), ms)
     })

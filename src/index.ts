@@ -4,12 +4,16 @@ import {MainScene} from "./ui/threejs/main-scene"
 import {BasicWorldMapGenerator} from "./ui/threejs/world-map-generator"
 import {stats} from "./ui/monitoring/stats"
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
-import {GameBuilder} from "./domain/model/game"
+import {GameBuilder} from "./domain/models/game"
 import {loadImprovedTexture} from "./ui/threejs/textures"
-import {Player, Unit} from "./domain/model/types"
-import {BOW} from "./domain/model/weapons"
+import {Player, Unit} from "./domain/models/types"
+import {BOW} from "./domain/models/weapons"
 import {TacticalGUI} from "./ui/gui"
 import {SceneContext} from "./ui/threejs/context"
+import {GameManager} from "./ui/models/game-manager";
+import {STATES} from "./ui/models/types";
+import {UnitSelectedState} from "./ui/models/states/unit-selected";
+import {GameState} from "./ui/models/game-state";
 
 function main() {
     const cellSize = 16
@@ -24,15 +28,55 @@ function main() {
 
     const scene = new Scene()
 
-    const gameView = new GameView(game, scene, context, textureInfos, 200)
-    gameView.generateChunk()
-    gameView.generateUnits()
+    const gameView = new GameView(scene, context, textureInfos)
+    gameView.generateChunk(game.world)
+    gameView.generateUnits(game)
 
     const mainScene = new MainScene(scene, context)
-    mainScene.addWater(gameView.game.world.waterLevel)
+    mainScene.addWater(game.world.waterLevel)
     mainScene.addSky()
 
-    const gameGUI = new TacticalGUI(context.canvas, context.camera, gameView)
+    const gameManager = new GameManager(game, gameView)
+    const gameGUI = new TacticalGUI(context.camera, gameManager)
+
+    gameManager.on("stateChanged", (gameState: GameState) => updateGUI(gameGUI, gameState))
+    gameManager.clickOnTarget({unit: game.getActiveUnit()})
+
+    const raycast = (e: MouseEvent) => {
+
+        if (e.button !== 0) {
+            return
+        }
+
+        const {camera, raycaster} = context
+        // 1. sets the mouse position with a coordinate system where the center
+        //   of the screen is the origin
+        const mouse = {
+            x: (e.clientX / window.innerWidth) * 2 - 1,
+            y: -(e.clientY / window.innerHeight) * 2 + 1
+        }
+
+        // 2. set the picking ray from the camera position and mouse coordinates
+        raycaster.setFromCamera(mouse, camera)
+
+        // 3. compute intersections (no 2nd parameter true anymore)
+        const intersects = raycaster.intersectObjects(scene.children, true)
+        if (intersects.length > 0) {
+            /*
+                An intersection has the following properties :
+                    - object : intersected object (THREE.Mesh)
+                    - distance : distance from camera to intersection (number)
+                    - face : intersected face (THREE.Face3)
+                    - faceIndex : intersected face index (number)
+                    - point : intersection point (THREE.Vector3)
+                    - uv : intersection point in the object's UV coordinates (THREE.Vector2)
+            */
+            const target = gameView.getTarget(game, intersects)
+            target && gameManager.clickOnTarget(target)
+        }
+    }
+
+    context.renderer.domElement.addEventListener('mousedown', raycast, false)
 
     function render() {
         requestAnimationFrame(render)
@@ -45,8 +89,18 @@ function main() {
 
     stats()
     render()
+}
 
-    gameView.startTurn()
+const updateGUI = (gui: TacticalGUI, gameState: GameState) => {
+    if (gameState.name === STATES.UNIT_SELECTED) {
+        const selectedUnit = (gameState as UnitSelectedState).selectedUnit
+        const selectedUnitState = gameState.game.getState(selectedUnit)
+        gui.showUnitState(selectedUnit, selectedUnitState)
+        gui.showUnitActions(selectedUnitState, selectedUnit === gameState.game.getActiveUnit())
+    }
+    if (gameState.name === STATES.NOTHING_SELECTED) {
+        gui.unselectUnit()
+    }
 }
 
 const initSceneContext = (cellSize: number) => {
@@ -144,7 +198,7 @@ const initGame = (cellSize: number) => {
             weapon: BOW(3, 10, 1)
         }), worldMap.getRandomPosition(0, 0, cellSize - 1, cellSize - 1), player2)
         .start();
-};
+}
 
 main()
 

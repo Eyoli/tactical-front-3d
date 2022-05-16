@@ -8,7 +8,7 @@ import {
     Texture,
     TextureLoader
 } from "three"
-import {Position3D} from "../../domain/model/types"
+import {Position3D} from "../../domain/models/types"
 
 export type TextureInfos = {
     material: Material

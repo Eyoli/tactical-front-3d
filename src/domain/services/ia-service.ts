@@ -1,8 +1,8 @@
 import {IAPort} from "../ports"
-import {Game} from "../model/game"
-import {ActionDetail, ActionType, Turn} from "../model/ia"
-import {AttackAction, Position2D, Position3D, Unit} from "../model/types"
-import {Weapon} from "../model/weapons"
+import {Game} from "../models/game"
+import {ActionDetail, ActionType, Turn} from "../models/ia"
+import {AttackAction, Position3D, Unit} from "../models/types"
+import {Weapon} from "../models/weapons"
 import {BowMotion} from "../algorithm/trajectory";
 
 const isPositionWithinWeaponRange = (weapon: Weapon, game: Game, pUnit: Position3D, pTarget: Position3D) => {
@@ -68,7 +68,10 @@ export class IAService implements IAPort {
                     // If we can't reach our target, we try to move closer
                     if (accessiblePositions.length > 0 && !isPositionWithinWeaponRange(unit.weapon, game, pUnit, pTarget)) {
                         pUnit = getClosestPositionToTarget(unit, accessiblePositions, target, game)
-                        details.push({type: "move" as ActionType, position: {x: pUnit.x, z: pUnit.z} as Position2D})
+                        details.push({
+                            type: "move" as ActionType,
+                            position: {x: pUnit.x, y: pUnit.y, z: pUnit.z}
+                        })
                     }
 
                     // If we can reach our target (with or without moving toward it), we attack it
@@ -79,7 +82,7 @@ export class IAService implements IAPort {
                             details.push({
                                 type: "attack",
                                 action,
-                                position: {x: pTarget.x, z: pTarget.z},
+                                position: {x: pTarget.x, y: pTarget.y, z: pTarget.z},
                             })
                         }
                     }
