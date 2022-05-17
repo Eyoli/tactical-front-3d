@@ -23,7 +23,7 @@ export interface GameViewInterface {
 }
 
 export type GUIAction = 'move' | 'attack' | "end"
-export type GameEvent = 'stateChanged'
+export type GameOutputEvent = 'stateChanged'
 export const STATES = {
     NOTHING_SELECTED: 'NOTHING_SELECTED',
     UNIT_SELECTED: 'UNIT_SELECTED',
@@ -31,4 +31,41 @@ export const STATES = {
     ACTION_PREVIEWED: 'ACTION_PREVIEWED',
     MOVE_SELECTION: 'MOVE_SELECTION',
     WAITING: 'WAITING',
+}
+
+export abstract class GameInputEvent {
+    protected constructor(
+        readonly name: String
+    ) {
+    }
+}
+
+export class UnitSelectionEvent extends GameInputEvent {
+    constructor(
+        readonly unit: Unit
+    ) {
+        super("UnitSelectionEvent")
+    }
+}
+
+export class PositionSelectionEvent extends GameInputEvent {
+    constructor(
+        readonly position: Position3D
+    ) {
+        super("PositionSelectionEvent")
+    }
+}
+
+export class CancelEvent extends GameInputEvent {
+    constructor() {
+        super("CancelEvent");
+    }
+}
+
+export class ActionEvent extends GameInputEvent {
+    constructor(
+        readonly action: GUIAction
+    ) {
+        super("ActionEvent")
+    }
 }

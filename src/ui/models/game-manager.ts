@@ -1,4 +1,4 @@
-import {GameEvent, GameViewInterface, GUIAction, Target} from "./types";
+import {GameInputEvent, GameOutputEvent, GameViewInterface} from "./types";
 import {GameState} from "./game-state";
 import {NothingSelectedState} from "./states/nothing-selected";
 import {Game} from "../../domain/models/game";
@@ -7,7 +7,7 @@ type GameEventCallback = (...args: any) => void
 
 export class GameManager {
     private gameState: GameState
-    private callbacks: Map<GameEvent, GameEventCallback> = new Map()
+    private callbacks: Map<GameOutputEvent, GameEventCallback[]> = new Map()
     private frozen = false
 
     constructor(
@@ -17,37 +17,28 @@ export class GameManager {
         this.gameState = new NothingSelectedState(game, gameView)
     }
 
-    clickOnTarget = (target: Target): Promise<GameState> => {
-        if (this.frozen) return Promise.reject()
+    handleEvent = (event: GameInputEvent): Promise<GameState> => {
+        console.debug(`Event ${event.name} for state ${this.gameState.name}`)
+        if (this.frozen) return Promise.resolve(this.gameState)
 
         this.frozen = true
-        return this.gameState.clickOnTarget(target)
+        return this.gameState.handleEvent(event)
             .then((nextState) => {
                 console.debug(`${this.gameState.name} => ${nextState.name}`)
                 this.gameState = nextState
                 this.frozen = false
-                this.callbacks.get('stateChanged')?.call(null, nextState)
+                this.dispatch("stateChanged", nextState)
 
                 return nextState
             })
     }
 
-    triggerGUIAction = (guiAction: GUIAction): Promise<GameState> => {
-        if (this.frozen) return Promise.reject()
-
-        this.frozen = true
-        return this.gameState.triggerGUIAction(guiAction)
-            .then((nextState) => {
-                console.debug(`${this.gameState.name} => ${nextState.name}`)
-                this.gameState = nextState
-                this.frozen = false
-                this.callbacks.get('stateChanged')?.call(null, nextState)
-
-                return nextState
-            })
+    register = (event: GameOutputEvent, callback: GameEventCallback) => {
+        if (!this.callbacks.has(event)) {
+            this.callbacks.set(event, [])
+        }
+        this.callbacks.get(event)?.push(callback)
     }
 
-    on = (event: GameEvent, callback: GameEventCallback) => {
-        this.callbacks.set(event, callback)
-    }
+    private dispatch = (event: GameOutputEvent, ...args: any) => this.callbacks.get('stateChanged')?.forEach((callback) => callback(...args))
 }

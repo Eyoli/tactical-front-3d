@@ -97,7 +97,6 @@ export class GameView implements GameViewInterface {
             .find(i => i != undefined)
         if (unitView) {
             return {
-                position: game.getPosition(unitView.unit),
                 unit: unitView.unit
             }
         } else if (intersects.length > 0) {

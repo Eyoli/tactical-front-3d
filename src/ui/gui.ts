@@ -2,6 +2,9 @@ import GUI from "lil-gui"
 import {Unit, UnitState} from "../domain/models/types"
 import {Camera, Scene} from "three";
 import {GameManager} from "./models/game-manager";
+import {ActionEvent, STATES} from "./models/types";
+import {UnitSelectedState} from "./models/states/unit-selected";
+import {GameState} from "./models/game-state";
 
 export class TacticalGUI {
 
@@ -17,12 +20,36 @@ export class TacticalGUI {
         this.actionsGUI = new GUI({title: "Actions"})
     }
 
+    update(gameState: GameState) {
+        if (gameState instanceof UnitSelectedState) {
+            const selectedUnit = gameState.selectedUnit
+            const selectedUnitState = gameState.game.getState(selectedUnit)
+            this.showUnitState(selectedUnit, selectedUnitState)
+            this.showUnitActions(selectedUnitState, selectedUnit === gameState.game.getActiveUnit())
+        }
+        if (gameState.name === STATES.NOTHING_SELECTED) {
+            this.unselectUnit()
+        }
+    }
+
     unselectUnit = () => {
         this.unitGUI?.destroy()
         this.actionsGUI?.destroy()
     }
 
-    showUnitState = (unit: Unit, state: UnitState) => {
+    move = async () => {
+        await this.gameManager.handleEvent(new ActionEvent("move"))
+    }
+
+    attack = async () => {
+        await this.gameManager.handleEvent(new ActionEvent("attack"))
+    }
+
+    endTurn = async () => {
+        await this.gameManager.handleEvent(new ActionEvent("end"))
+    }
+
+    private showUnitState = (unit: Unit, state: UnitState) => {
         console.log('Update unit state', unit, state)
 
         if (unit) {
@@ -39,7 +66,7 @@ export class TacticalGUI {
         }
     }
 
-    showUnitActions = (state: UnitState, isActiveUnit: boolean) => {
+    private showUnitActions = (state: UnitState, isActiveUnit: boolean) => {
         if (isActiveUnit) {
             this.actionsGUI?.destroy()
             this.actionsGUI = new GUI({title: 'Actions'})
@@ -55,17 +82,5 @@ export class TacticalGUI {
 
             this.actionsGUI?.add(this, 'endTurn').name('End turn')
         }
-    }
-
-    move = async () => {
-        await this.gameManager.triggerGUIAction("move")
-    }
-
-    attack = async () => {
-        await this.gameManager.triggerGUIAction("attack")
-    }
-
-    endTurn = async () => {
-        await this.gameManager.triggerGUIAction("end")
     }
 }

@@ -11,8 +11,7 @@ import {BOW} from "./domain/models/weapons"
 import {TacticalGUI} from "./ui/gui"
 import {SceneContext} from "./ui/threejs/context"
 import {GameManager} from "./ui/models/game-manager";
-import {STATES} from "./ui/models/types";
-import {UnitSelectedState} from "./ui/models/states/unit-selected";
+import {PositionSelectionEvent, UnitSelectionEvent} from "./ui/models/types";
 import {GameState} from "./ui/models/game-state";
 
 function main() {
@@ -39,8 +38,8 @@ function main() {
     const gameManager = new GameManager(game, gameView)
     const gameGUI = new TacticalGUI(context.camera, gameManager)
 
-    gameManager.on("stateChanged", (gameState: GameState) => updateGUI(gameGUI, gameState))
-    gameManager.clickOnTarget({unit: game.getActiveUnit()})
+    gameManager.register("stateChanged", (gameState: GameState) => updateGUI(gameGUI, gameState))
+    gameManager.handleEvent(new UnitSelectionEvent(game.getActiveUnit()))
 
     const raycast = (e: MouseEvent) => {
 
@@ -72,7 +71,8 @@ function main() {
                     - uv : intersection point in the object's UV coordinates (THREE.Vector2)
             */
             const target = gameView.getTarget(game, intersects)
-            target && gameManager.clickOnTarget(target)
+            target?.position && gameManager.handleEvent(new PositionSelectionEvent(target.position))
+            target?.unit && gameManager.handleEvent(new UnitSelectionEvent(target.unit))
         }
     }
 
@@ -92,15 +92,7 @@ function main() {
 }
 
 const updateGUI = (gui: TacticalGUI, gameState: GameState) => {
-    if (gameState.name === STATES.UNIT_SELECTED) {
-        const selectedUnit = (gameState as UnitSelectedState).selectedUnit
-        const selectedUnitState = gameState.game.getState(selectedUnit)
-        gui.showUnitState(selectedUnit, selectedUnitState)
-        gui.showUnitActions(selectedUnitState, selectedUnit === gameState.game.getActiveUnit())
-    }
-    if (gameState.name === STATES.NOTHING_SELECTED) {
-        gui.unselectUnit()
-    }
+    gui.update(gameState)
 }
 
 const initSceneContext = (cellSize: number) => {

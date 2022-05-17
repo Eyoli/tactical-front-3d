@@ -1,5 +1,5 @@
 import {Action, Unit} from "../../../domain/models/types";
-import {GameViewInterface, STATES, Target} from "../types";
+import {GameInputEvent, GameViewInterface, PositionSelectionEvent, STATES, UnitSelectionEvent} from "../types";
 import {GameState} from "../game-state";
 import {ActionPreviewedState} from "./action-previewed";
 import {Game} from "../../../domain/models/game";
@@ -16,20 +16,24 @@ export class ActionTargetSelectionState extends GameState {
         super(game, gameView, STATES.ACTION_TARGET_SELECTION)
     }
 
-    clickOnTarget = (target: Target): Promise<GameState> => {
-        if (target.unit && target.position) {
-            if (this.selectedUnit === target.unit) {
+    handleEvent = (event: GameInputEvent): Promise<GameState> => {
+        if (event instanceof UnitSelectionEvent) {
+            if (this.selectedUnit === event.unit) {
                 this.gameView.unselect()
                 return Promise.resolve(new NothingSelectedState(this.game, this.gameView))
-            } else {
-                const actionResult = this.game.previewAction(this.selectedAction, target.position)
-                console.log("Action previewed", actionResult)
-
-                const state = this.game.getState(this.selectedUnit)
-                this.gameView.previewAction(this.selectedUnit, state, actionResult, target.position)
-                return Promise.resolve(new ActionPreviewedState(this.game, this.gameView, this.selectedUnit, this.selectedAction))
             }
+            return Promise.resolve(this)
         }
+
+        if (event instanceof PositionSelectionEvent) {
+            const actionResult = this.game.previewAction(this.selectedAction, event.position)
+            console.log("Action previewed", actionResult)
+
+            const state = this.game.getState(this.selectedUnit)
+            this.gameView.previewAction(this.selectedUnit, state, actionResult, event.position)
+            return Promise.resolve(new ActionPreviewedState(this.game, this.gameView, this.selectedUnit, this.selectedAction))
+        }
+
         return Promise.resolve(this)
     }
 }

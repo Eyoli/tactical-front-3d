@@ -1,5 +1,5 @@
 import {AttackAction, Unit} from "../../../domain/models/types";
-import {GameViewInterface, GUIAction, STATES, Target} from "../types";
+import {ActionEvent, GameInputEvent, GameViewInterface, STATES, UnitSelectionEvent} from "../types";
 import {GameState} from "../game-state";
 import {NothingSelectedState} from "./nothing-selected";
 import {MoveSelectionState} from "./move-selection";
@@ -20,23 +20,31 @@ export class UnitSelectedState extends GameState {
         super(game, gameView, STATES.UNIT_SELECTED)
     }
 
-    clickOnTarget = (target: Target): Promise<GameState> => {
-        if (target?.unit && this.selectedUnit === target.unit) {
-            this.gameView.unselect()
-            return Promise.resolve(new NothingSelectedState(this.game, this.gameView))
+    handleEvent = (event: GameInputEvent): Promise<GameState> => {
+        if (event instanceof UnitSelectionEvent) {
+            if (event.unit === this.selectedUnit) {
+                this.gameView.unselect()
+                return Promise.resolve(new NothingSelectedState(this.game, this.gameView))
+            }
+            return Promise.resolve(this)
         }
+
+        if (event instanceof ActionEvent) {
+            return this.handleActionEvent(event)
+        }
+
         return Promise.resolve(this)
     }
 
-    triggerGUIAction = (guiAction: GUIAction): Promise<GameState> => {
-        if (guiAction === "move") {
+    private handleActionEvent = (event: ActionEvent) => {
+        if (event.action === "move") {
             console.log('Displaying move range')
 
             const reachablePositions = this.game.getReachablePositions(this.selectedUnit)
             this.gameView.selectMoveAction(this.selectedUnit, reachablePositions)
             return Promise.resolve(new MoveSelectionState(this.game, this.gameView, this.selectedUnit))
         }
-        if (guiAction === "attack") {
+        if (event.action === "attack") {
             const action = new AttackAction(this.selectedUnit)
             console.log('Displaying action range', action)
 
@@ -44,7 +52,7 @@ export class UnitSelectedState extends GameState {
             this.gameView.selectAction(this.selectedUnit, reachablePositions)
             return Promise.resolve(new ActionTargetSelectionState(this.game, this.gameView, this.selectedUnit, action))
         }
-        if (guiAction === "end") {
+        if (event.action === "end") {
             this.game.nextTurn()
             const activeUnit = this.game.getActiveUnit()
             const activePlayer = this.game.getActivePlayer()

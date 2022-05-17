@@ -1,4 +1,4 @@
-import {GameViewInterface, STATES, Target} from "../types";
+import {GameInputEvent, GameViewInterface, STATES, UnitSelectionEvent} from "../types";
 import {GameState} from "../game-state";
 import {UnitSelectedState} from "./unit-selected";
 import {Game} from "../../../domain/models/game";
@@ -12,10 +12,10 @@ export class NothingSelectedState extends GameState {
         super(game, gameView, STATES.NOTHING_SELECTED);
     }
 
-    override clickOnTarget = (target: Target): Promise<GameState> => {
-        if (target.unit) {
-            this.gameView.select(target.unit, this.game.getState(target.unit).position)
-            return Promise.resolve(new UnitSelectedState(this.game, this.gameView, target.unit))
+    handleEvent = (event: GameInputEvent): Promise<GameState> => {
+        if (event instanceof UnitSelectionEvent) {
+            this.gameView.select(event.unit, this.game.getState(event.unit).position)
+            return Promise.resolve(new UnitSelectedState(this.game, this.gameView, event.unit))
         }
         return Promise.resolve(this)
     }

@@ -1,5 +1,6 @@
 import {aGameWithFlatWorldAndTwoPlayers, gameViewMock} from "../../common";
 import {GameManager} from "../../../src/ui/models/game-manager";
+import {ActionEvent, PositionSelectionEvent, UnitSelectionEvent} from "../../../src/ui/models/types";
 
 const mock = gameViewMock()
 
@@ -14,17 +15,17 @@ describe('Game manager', () => {
 
         await gameManager
             // select unit 1
-            .clickOnTarget({unit: unit1})
+            .handleEvent(new UnitSelectionEvent(unit1))
             // select attack action
-            .then(() => gameManager.triggerGUIAction("attack"))
+            .then(() => gameManager.handleEvent(new ActionEvent("attack")))
             // target unit 2
-            .then(() => gameManager.clickOnTarget({unit: unit2, position: {x: 1, y: 2, z: 2}}))
+            .then(() => gameManager.handleEvent(new PositionSelectionEvent({x: 1, y: 2, z: 2})))
             // confirm action
-            .then(() => gameManager.clickOnTarget({unit: unit2, position: {x: 1, y: 2, z: 2}}))
+            .then(() => gameManager.handleEvent(new PositionSelectionEvent({x: 1, y: 2, z: 2})))
             // select move action
-            .then(() => gameManager.triggerGUIAction("move"))
+            .then(() => gameManager.handleEvent(new ActionEvent("move")))
             // select a valid position on the map
-            .then(() => gameManager.clickOnTarget({position: {x: 2, y: 1, z: 1}}))
+            .then(() => gameManager.handleEvent(new PositionSelectionEvent({x: 2, y: 1, z: 1})))
 
         expect(game.getState(unit1)).toMatchObject({
             position: {x: 2, y: 2, z: 1}
