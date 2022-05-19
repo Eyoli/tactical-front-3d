@@ -28,5 +28,5 @@ jobs:
           touch dist/.nojekyll
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add dist && git commit -m 'Build v0.1.0'
-          git subtree push --prefix dist origin deploy
+          git subtree split --prefix dist -b deploy
+          git push -f origin deploy:deploy
