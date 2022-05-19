@@ -26,9 +26,10 @@ jobs:
           npm test
       - name: Deploy
         run: |
-          touch dist/.nojekyll
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add dist
           git subtree split --prefix dist -b deploy
+          touch .nojekyll
+          git add .nojekyll
+          git commit -m "Add .nojekyll"
           git push -f origin deploy:deploy
