@@ -25,7 +25,7 @@ describe('ia services', () => {
         const actions = iaService.computeBestTurnActions(game, iaUnit)
         const expectedMove: ActionDetail = {
             type: "move",
-            position: {x: 0, y: 1, z: 1}
+            position: {x: 0, y: 2, z: 1}
         }
 
         // Start by moving closer to the target
@@ -34,7 +34,7 @@ describe('ia services', () => {
         // Then attack the target
         const attack: ActionDetail = actions.actions.next().value
         expect(attack.type).toStrictEqual("attack")
-        expect(attack.position).toStrictEqual({x: 0, z: 0})
+        expect(attack.position).toStrictEqual({x: 0, y: 2, z: 0})
 
         // No further action to iterate over
         expect(actions.actions.next().done).toBe(true)
@@ -57,7 +57,7 @@ describe('ia services', () => {
         // Start by attacking the target
         const attack = actions.actions.next().value
         expect(attack.type).toStrictEqual("attack")
-        expect(attack.position).toStrictEqual({x: 0, z: 0})
+        expect(attack.position).toStrictEqual({x: 0, y: 2, z: 0})
 
         // No further action to iterate over
         expect(actions.actions.next().done).toBe(true)
