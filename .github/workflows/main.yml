@@ -37,10 +37,11 @@ jobs:
         with:
           path: dist
           key: $GITHUB_REF_NAME-cache
-      - run: |
-        git config user.name github-actions
-        git config user.email github-actions@github.com
-        git add dist -f
-        git commit -m "add dist folder"
-        git subtree split --prefix dist -b deploy
-        git push -f origin deploy:deploy
+      - name: Push
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add dist -f
+          git commit -m "add dist folder"
+          git subtree split --prefix dist -b deploy
+          git push -f origin deploy:deploy
