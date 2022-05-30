@@ -13,6 +13,7 @@ import {SceneContext} from "./ui/threejs/context"
 import {GameManager} from "./ui/models/game-manager";
 import {PositionSelectionEvent, UnitSelectionEvent} from "./ui/models/types";
 import {GameState} from "./ui/models/game-state";
+import {IAManager} from "./ui/threejs/ia";
 
 function main() {
     const cellSize = 16
@@ -36,6 +37,7 @@ function main() {
     mainScene.addSky()
 
     const gameManager = new GameManager(game, gameView)
+    const iaManager = new IAManager(gameManager, 200)
     const gameGUI = new TacticalGUI(context.camera, gameManager)
 
     gameManager.register("stateChanged", (gameState: GameState) => updateGUI(gameGUI, gameState))
@@ -70,9 +72,11 @@ function main() {
                     - point : intersection point (THREE.Vector3)
                     - uv : intersection point in the object's UV coordinates (THREE.Vector2)
             */
-            const target = gameView.getTarget(game, intersects)
-            target?.position && gameManager.handleEvent(new PositionSelectionEvent(target.position))
-            target?.unit && gameManager.handleEvent(new UnitSelectionEvent(target.unit))
+            if (!iaManager.isActive()) {
+                const target = gameView.getTarget(game, intersects)
+                target?.position && gameManager.handleEvent(new PositionSelectionEvent(target.position))
+                target?.unit && gameManager.handleEvent(new UnitSelectionEvent(target.unit))
+            }
         }
     }
 

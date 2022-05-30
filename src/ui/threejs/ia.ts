@@ -1,53 +1,57 @@
 import {ActionDetail} from "../../domain/models/ia"
 import {delay} from "./utility"
-import {IAPort} from "../../domain/ports"
-import {ActionEvent, GameViewInterface, PositionSelectionEvent} from "../models/types"
-import {Game} from "../../domain/models/game";
-import {NothingSelectedState} from "../models/states/nothing-selected";
+import {ActionEvent, PositionSelectionEvent} from "../models/types"
 import {GameState} from "../models/game-state";
+import {GameManager} from "../models/game-manager";
 
 
 export class IAManager {
+
+    private active = false
+
     constructor(
-        private readonly iaPort: IAPort,
-        private readonly delayDuration: number,
+        private readonly gameManager: GameManager,
+        private readonly delayBetweenActions: number,
     ) {
     }
 
-    handleTurn = (game: Game, gameView: GameViewInterface) => {
-        const activeUnit = game.getActiveUnit()
-        const turn = this.iaPort.computeBestTurnActions(game, activeUnit)
-        const initialState = new NothingSelectedState(game, gameView);
-        return this.handleAction(initialState, turn.actions)
+    handleTurn = async (actionsDetails: IterableIterator<ActionDetail>) => {
+        this.active = true
+        return this.handleActions(actionsDetails)
+            .then(() => {
+                this.active = false
+            })
     }
 
-    private handleAction = (state: GameState, details: IterableIterator<ActionDetail>): Promise<GameState> => {
-        const {handleAction} = this
+    isActive = () => this.active
+
+    private handleActions = async (details: IterableIterator<ActionDetail>): Promise<GameState> => {
+        const {gameManager, handleActions} = this
         const itResult = details.next()
         if (!itResult.done) {
             const detail = itResult.value
             const positionEvent = new PositionSelectionEvent(detail.position!)
             if (detail.type === "move") {
                 // We execute the move
-                return state
+                return gameManager
                     .handleEvent(new ActionEvent("move"))
-                    .then(moveSelectionState => delay(moveSelectionState, this.delayDuration))
-                    .then(moveSelectionState => moveSelectionState.handleEvent(positionEvent))
+                    .then(moveSelectionState => delay(moveSelectionState, this.delayBetweenActions))
+                    .then(() => gameManager.handleEvent(positionEvent))
             } else if (detail.type === "attack" && detail.action) {
                 // We execute the attack
-                return state
+                return gameManager
                     .handleEvent(new ActionEvent("attack"))
-                    .then(actionTargetSelectionState => delay(actionTargetSelectionState, this.delayDuration))
-                    .then(actionTargetSelectionState => actionTargetSelectionState.handleEvent(positionEvent))
-                    .then(actionPreviewedState => delay(actionPreviewedState, this.delayDuration))
-                    .then(actionPreviewedState => actionPreviewedState.handleEvent(positionEvent))
-                    .then(() => handleAction(state, details))
+                    .then(actionTargetSelectionState => delay(actionTargetSelectionState, this.delayBetweenActions))
+                    .then(() => gameManager.handleEvent(positionEvent))
+                    .then(actionPreviewedState => delay(actionPreviewedState, this.delayBetweenActions))
+                    .then(() => gameManager.handleEvent(positionEvent))
+                    .then(() => handleActions(details))
             } else {
                 // We can't do anything with this kind of action, so we proceed to the next one
-                return handleAction(state, details)
+                return handleActions(details)
             }
         } else {
-            return state.handleEvent(new ActionEvent("end"))
+            return gameManager.handleEvent(new ActionEvent("end"))
         }
     }
 }

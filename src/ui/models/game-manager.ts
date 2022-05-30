@@ -40,5 +40,5 @@ export class GameManager {
         this.callbacks.get(event)?.push(callback)
     }
 
-    private dispatch = (event: GameOutputEvent, ...args: any) => this.callbacks.get('stateChanged')?.forEach((callback) => callback(...args))
+    private dispatch = (event: GameOutputEvent, ...args: any) => this.callbacks.get(event)?.forEach((callback) => callback(...args))
 }
