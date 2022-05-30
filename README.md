@@ -1,5 +1,4 @@
-# express-ts-webpack-starter
-Express-Typescript with Webpack Starter Template Repository
+# Tactical RPG concept
 
 **What it does?**
 
