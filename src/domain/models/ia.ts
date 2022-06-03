@@ -1,4 +1,5 @@
-import {Action, Position3D} from "./types"
+import {Position3D} from "./types"
+import {Action} from "./actions";
 
 export type ActionType = 'move' | 'attack'
 

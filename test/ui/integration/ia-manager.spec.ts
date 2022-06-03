@@ -1,9 +1,9 @@
 import {aGameWithFlatWorldAndTwoPlayers, gameViewMock} from "../../common";
-import {IAManager} from "../../../src/ui/threejs/ia";
+import {IAManager} from "../../../src/ui/models/ia";
 import {GameManager} from "../../../src/ui/models/game-manager";
 import {ActionType} from "../../../src/domain/models/ia";
-import {AttackAction} from "../../../src/domain/models/types";
 import {UnitSelectionEvent} from "../../../src/ui/models/types";
+import {AttackAction} from "../../../src/domain/models/actions";
 
 const gameView = gameViewMock()
 

@@ -1,5 +1,6 @@
 import {Game} from "../models/game"
-import {Action, Position3D, Unit} from "../models/types"
+import {Position3D, Unit} from "../models/types"
+import {Action} from "../models/actions";
 
 export const GRAVITATIONAL_FORCE_EQUIVALENT = 9.80665
 type Position = { x: number, y: number }

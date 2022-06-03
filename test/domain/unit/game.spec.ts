@@ -1,7 +1,14 @@
 import {Game, GameBuilder} from "../../../src/domain/models/game"
-import {AttackAction, Player, Unit} from "../../../src/domain/models/types"
+import {Player} from "../../../src/domain/models/types"
 import {UNIT_CANNOT_MOVE} from "../../../src/domain/models/errors"
-import {aGameWithFlatWorldAndTwoPlayers, aUnit, initWorldMap} from "../../common"
+import {
+    aGameWithFlatWorldAndTwoPlayers,
+    aUnit,
+    expectUnitToBeAbleToMove,
+    expectUnitToNotBeAbleToMove,
+    initWorldMap
+} from "../../common"
+import {AttackAction} from "../../../src/domain/models/actions";
 
 describe('Game', () => {
 
@@ -83,15 +90,31 @@ describe('Game', () => {
         ])
     })
 
+    it('should preview an action on a target', () => {
+        const game = aGameWithFlatWorldAndTwoPlayers()
+        const unit1 = game.units[0]
+        const unit2 = game.units[1]
+
+        const actionResult = game.previewAction(new AttackAction(unit1), {x: 1, z: 2})
+
+        expect(actionResult.newStates.get(unit1)?.hp).toEqual(10)
+        expect(actionResult.newStates.get(unit2)?.hp).toEqual(9)
+        expect(actionResult.newStates.get(unit1)?.canAct).toEqual(false)
+    })
+
     it('should execute an action on a target', () => {
         const game = aGameWithFlatWorldAndTwoPlayers()
         const unit1 = game.units[0]
         const unit2 = game.units[1]
 
-        game.executeAction(new AttackAction(unit1), {x: 1, z: 2})
+        const actionResult = game.executeAction(new AttackAction(unit1), {x: 1, z: 2})
 
+        expect(actionResult.newStates.get(unit1)?.hp).toEqual(10)
+        expect(actionResult.newStates.get(unit2)?.hp).toEqual(9)
+        expect(actionResult.newStates.get(unit1)?.canAct).toEqual(false)
         expect(game.getState(unit1).hp).toEqual(10)
         expect(game.getState(unit2).hp).toEqual(9)
+        expect(game.getState(unit1).canAct).toEqual(false)
     })
 
     it('should manage correctly the ability to move', () => {
@@ -99,28 +122,31 @@ describe('Game', () => {
         const unit1 = game.units[0]
         const unit2 = game.units[1]
 
-        expectUnitToBeAbleToMove(unit1, game)
-        expectUnitToNotBeAbleToMove(unit2, game)
-
         game.moveUnit(unit1, {x: 1, z: 0})
         expectUnitToNotBeAbleToMove(unit1, game)
         expectUnitToNotBeAbleToMove(unit2, game)
         expect(() => game.moveUnit(unit1, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
         expect(() => game.moveUnit(unit2, {x: 0, z: 2})).toThrow(UNIT_CANNOT_MOVE)
+    })
 
-        game.nextTurn()
-        expectUnitToNotBeAbleToMove(unit1, game)
-        expectUnitToBeAbleToMove(unit2, game)
+    it('should start correctly', () => {
+        const game = aGameWithFlatWorldAndTwoPlayers()
+        const unit1 = game.units[0]
+        const unit2 = game.units[1]
 
-        game.moveUnit(unit2, {x: 0, z: 2})
-        expectUnitToNotBeAbleToMove(unit1, game)
-        expectUnitToNotBeAbleToMove(unit2, game)
-
-        game.nextTurn()
         expectUnitToBeAbleToMove(unit1, game)
         expectUnitToNotBeAbleToMove(unit2, game)
     })
-})
 
-const expectUnitToNotBeAbleToMove = (unit: Unit, game: Game) => expect(game.getState(unit).canMove).toEqual(false)
-const expectUnitToBeAbleToMove = (unit: Unit, game: Game) => expect(game.getState(unit).canMove).toEqual(true)
+    it('should end a turn', () => {
+        const game = aGameWithFlatWorldAndTwoPlayers()
+        const unit1 = game.units[0]
+        const unit2 = game.units[1]
+
+        game.nextTurn()
+
+        expectUnitToNotBeAbleToMove(unit1, game)
+        expectUnitToBeAbleToMove(unit2, game)
+        expect(game.getActiveUnit()).toBe(unit2)
+    })
+})

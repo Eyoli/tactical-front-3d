@@ -1,4 +1,5 @@
-import {ActionResult, Position3D, Unit, UnitState} from "../../domain/models/types"
+import {Position3D, Unit, UnitState} from "../../domain/models/types"
+import {ActionResult} from "../../domain/models/actions";
 
 export type Target = {
     position?: Position3D,
@@ -13,13 +14,13 @@ export interface GameViewInterface {
 
     selectMoveAction(unit: Unit, reachablePositions: Position3D[]): void
 
-    moveSelectedUnitAlong(selectedUnit: Unit, state: UnitState, path: Position3D[]): Promise<void>
+    moveSelectedUnitAlong(selectedUnitState: UnitState, path: Position3D[]): Promise<void>
 
     selectAction(unit: Unit, reachablePositions: Position3D[]): void
 
-    previewAction(unit: Unit, state: UnitState, actionResult: ActionResult, position: Position3D): void
+    previewAction(unitState: UnitState, actionResult: ActionResult, position: Position3D): void
 
-    executeAction(unit: Unit, state: UnitState, actionResult: ActionResult, position: Position3D): Promise<void>
+    executeAction(unitState: UnitState, actionResult: ActionResult, position: Position3D): Promise<void>
 }
 
 export type GUIAction = 'move' | 'attack' | "end"

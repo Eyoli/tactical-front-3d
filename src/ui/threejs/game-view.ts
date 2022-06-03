@@ -1,5 +1,5 @@
 import {BufferGeometry, Group, Intersection, Material, Mesh, Scene} from "three"
-import {ActionResult, Position3D, Unit, UnitState} from "../../domain/models/types"
+import {Position3D, Unit, UnitState} from "../../domain/models/types"
 import {initUnit, UnitView} from "./units"
 import {TextureInfos, updateChunkGeometry} from "./textures"
 import {RangeView, TrajectoryView} from "./views"
@@ -8,6 +8,7 @@ import {toVector3} from "./utility";
 import {SceneContext} from "./context";
 import {Game} from "../../domain/models/game";
 import {WorldMap} from "../../domain/models/world-map";
+import {ActionResult} from "../../domain/models/actions";
 
 const neighborOffsets = [
     [0, 0, 0], // self
@@ -48,7 +49,7 @@ export class GameView implements GameViewInterface {
     }
 
     generateChunk(world: WorldMap) {
-        const {chunkSize, getVoxel} = world
+        const {size, getVoxel} = world
         const {textureInfos} = this
 
         const updatedCellIds = new Map<string, boolean>()
@@ -59,7 +60,7 @@ export class GameView implements GameViewInterface {
             const cellId = "1"
             if (!updatedCellIds.get(cellId)) {
                 updatedCellIds.set(cellId, true)
-                updateChunkGeometry(ox, oy, oz, chunkSize, this.worldMesh, textureInfos, getVoxel)
+                updateChunkGeometry(ox, oy, oz, size, this.worldMesh, textureInfos, getVoxel)
             }
         }
     }
@@ -107,29 +108,29 @@ export class GameView implements GameViewInterface {
         return undefined
     }
 
-    moveSelectedUnitAlong = (selectedUnit: Unit, state: UnitState, path: Position3D[]): Promise<void> => {
+    moveSelectedUnitAlong = (selectedUnitState: UnitState, path: Position3D[]): Promise<void> => {
         const {rangeView, select, getUnitViewFromUnit} = this
 
         rangeView.clear()
 
-        select(selectedUnit, state.position)
+        select(selectedUnitState.unit, selectedUnitState.position)
 
-        const selectedUnitView = getUnitViewFromUnit(selectedUnit)
+        const selectedUnitView = getUnitViewFromUnit(selectedUnitState.unit)
         return selectedUnitView.startMovingToward(path, 5)
     }
 
-    previewAction = (selectedUnit: Unit, state: UnitState, actionResult: ActionResult, position: Position3D): void => {
+    previewAction = (selectedUnitState: UnitState, actionResult: ActionResult, position: Position3D): void => {
         const {rangeView, trajectoryView, getUnitViewFromUnit} = this
 
-        const unitView = getUnitViewFromUnit(selectedUnit)
+        const unitView = getUnitViewFromUnit(selectedUnitState.unit)
 
         actionResult.trajectory && trajectoryView.draw(unitView, toVector3(position), actionResult.trajectory)
         rangeView.clear()
-        rangeView.draw(unitView.player.color, [state.position])
+        rangeView.draw(unitView.player.color, [selectedUnitState.position])
         rangeView.draw('#000000', [position])
     }
 
-    executeAction = (selectedUnit: Unit, state: UnitState, actionResult: ActionResult, position: Position3D): Promise<void> => {
+    executeAction = (selectedUnitState: UnitState, actionResult: ActionResult, position: Position3D): Promise<void> => {
         const {
             rangeView,
             trajectoryView,
@@ -146,9 +147,9 @@ export class GameView implements GameViewInterface {
         })
 
         rangeView.clear()
-        select(selectedUnit, state.position)
+        select(selectedUnitState.unit, selectedUnitState.position)
 
-        const selectedUnitView = getUnitViewFromUnit(selectedUnit)
+        const selectedUnitView = getUnitViewFromUnit(selectedUnitState.unit)
         return selectedUnitView.startAttacking(toVector3(position), trajectoryView, 1)
             .then(() => {
                 trajectoryView.clear()

@@ -1,53 +1,10 @@
 import {IAPort} from "../ports"
 import {Game} from "../models/game"
 import {ActionDetail, ActionType, Turn} from "../models/ia"
-import {AttackAction, Position3D, Unit} from "../models/types"
-import {Weapon} from "../models/weapons"
+import {Unit} from "../models/types"
 import {BowMotion} from "../algorithm/trajectory";
-
-const isPositionWithinWeaponRange = (weapon: Weapon, game: Game, pUnit: Position3D, pTarget: Position3D) => {
-    const d = game.world.distanceBetween(pTarget, pUnit)
-    return d >= weapon.range.min && d <= weapon.range.max && Math.abs(pUnit.y - pTarget.y) <= weapon.range.vMax
-}
-
-const getFirstTargetWithinRange = (unit: Unit, accessiblePositions: Position3D[], game: Game, potentialTargets: Unit[]): Unit | undefined => potentialTargets
-    .find((target) => {
-        const targetState = game.getState(target)
-        return !targetState.dead && accessiblePositions.findIndex(isPositionWithinWeaponRange.bind(null, unit.weapon, game, targetState.position)) > -1
-    })
-/**
- * We look for a valid target. First we try to find a target within weapon range, else we take the first possible target
- * @param unit
- * @param accessiblePositions
- * @param target
- * @param game
- */
-const getClosestPositionToTarget = (unit: Unit, accessiblePositions: Position3D[], target: Unit, game: Game): Position3D => {
-
-    const pTarget = game.getState(target).position
-
-    if (accessiblePositions.length === 0) throw new Error("No accessible position available")
-
-    // If we find a target, we find the closest accessible position to it
-    return accessiblePositions
-        .map(p => ({
-            d: game.world.distanceBetween(p, pTarget),
-            withinWeaponRange: isPositionWithinWeaponRange(unit.weapon, game, p, pTarget),
-            p
-        }))
-        .reduce((previous, current) => {
-            if (previous?.withinWeaponRange) {
-                return previous
-            }
-            if (previous?.d && previous.d - unit.weapon.range.max > 0) {
-                return (previous.d < current.d) ? previous : current
-            }
-            if (previous?.d && previous.d - unit.weapon.range.min < 0) {
-                return (previous.d && previous?.d > current.d) ? previous : current
-            }
-            return current
-        }).p
-}
+import {AttackAction} from "../models/actions";
+import {getPositionWithinRangeOrClosestToTarget, getFirstTargetWithinRange, isPositionWithinWeaponRange} from "../algorithm/utility";
 
 export class IAService implements IAPort {
 
@@ -66,8 +23,8 @@ export class IAService implements IAPort {
                     let pUnit = game.getState(unit).position
 
                     // If we can't reach our target, we try to move closer
-                    if (accessiblePositions.length > 0 && !isPositionWithinWeaponRange(unit.weapon, game, pUnit, pTarget)) {
-                        pUnit = getClosestPositionToTarget(unit, accessiblePositions, target, game)
+                    if (accessiblePositions.length > 0 && !isPositionWithinWeaponRange(unit.weapon, game.world, pUnit, pTarget)) {
+                        pUnit = getPositionWithinRangeOrClosestToTarget(accessiblePositions, pTarget, unit.weapon, game)
                         details.push({
                             type: "move" as ActionType,
                             position: {x: pUnit.x, y: pUnit.y, z: pUnit.z}
@@ -75,7 +32,7 @@ export class IAService implements IAPort {
                     }
 
                     // If we can reach our target (with or without moving toward it), we attack it
-                    if (isPositionWithinWeaponRange(unit.weapon, game, pUnit, pTarget)) {
+                    if (isPositionWithinWeaponRange(unit.weapon, game.world, pUnit, pTarget)) {
                         const action = new AttackAction(unit)
                         const reachTarget = (action.trajectory === "bow") ? new BowMotion(game, action, pUnit, pTarget).reachTarget : true
                         if (reachTarget) {

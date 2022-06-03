@@ -39,11 +39,11 @@ export class WorldMap implements Graph<Position3D, number> {
     private readonly projectileGraph: ProjectileGraph<Position3D, number>
 
     constructor(
-        readonly chunkSize: number,
+        readonly size: number,
         readonly waterLevel: number = 0
     ) {
-        this.chunkSliceSize = chunkSize * chunkSize
-        this.chunk = new Uint8Array(chunkSize * chunkSize * chunkSize)
+        this.chunkSliceSize = size * size
+        this.chunk = new Uint8Array(size * size * size)
         this.projectileGraph = new ProjectileGraph(this)
     }
 
@@ -55,7 +55,6 @@ export class WorldMap implements Graph<Position3D, number> {
         const accessiblePositions: Position3D[] = []
         const tested: Position3D[] = []
         const candidates = [{node: start, cost: 0}]
-        let n = 0
         while (candidates.length > 0) {
             const candidate = candidates.shift()!
             const nodeKey = this.getNodeKey(candidate.node)
@@ -68,7 +67,6 @@ export class WorldMap implements Graph<Position3D, number> {
                 const newCandidates = getCandidates(this, candidate.node, candidate.cost, filter)
                 candidates.push(...newCandidates)
             }
-            n++
         }
 
         return accessiblePositions
@@ -80,7 +78,6 @@ export class WorldMap implements Graph<Position3D, number> {
         const accessiblePositions: Position3D[] = []
         const tested: Position3D[] = []
         const candidates = [{node: start, cost: 0}]
-        let n = 0
         while (candidates.length > 0) {
             const candidate = candidates.shift()!
             const nodeKey = projectileGraph.getNodeKey(candidate.node)
@@ -94,7 +91,6 @@ export class WorldMap implements Graph<Position3D, number> {
                 const newCandidates = getCandidates(projectileGraph, candidate.node, d, filter)
                 candidates.push(...newCandidates)
             }
-            n++
         }
 
         return accessiblePositions
@@ -130,11 +126,11 @@ export class WorldMap implements Graph<Position3D, number> {
     }
 
     getNodeKey = ({x, y, z}: Position3D) => {
-        const {chunkSize, chunkSliceSize} = this
-        const voxelX = x % chunkSize | 0
-        const voxelY = y % chunkSize | 0
-        const voxelZ = z % chunkSize | 0
-        return voxelY * chunkSliceSize + voxelZ * chunkSize + voxelX
+        const {size, chunkSliceSize} = this
+        const voxelX = x % size | 0
+        const voxelY = y % size | 0
+        const voxelZ = z % size | 0
+        return voxelY * chunkSliceSize + voxelZ * size + voxelX
     }
 
     setVoxel = (p: Position3D, v: number) => {
@@ -147,8 +143,8 @@ export class WorldMap implements Graph<Position3D, number> {
         map.forEach((cost, voxelValue) => this.voxelCostMap.set(voxelValue, cost))
 
     getVoxel = (p: Position3D) => {
-        const {chunk, chunkSize, getNodeKey} = this
-        if (p.x < 0 || p.z < 0 || p.x >= chunkSize || p.z >= chunkSize) {
+        const {chunk, size, getNodeKey} = this
+        if (p.x < 0 || p.z < 0 || p.x >= size || p.z >= size) {
             return 0
         }
         const voxelKey = getNodeKey(p)
@@ -159,7 +155,7 @@ export class WorldMap implements Graph<Position3D, number> {
         const {chunk} = this
         let y = 0
         let height = 0
-        while (y < this.chunkSize) {
+        while (y < this.size) {
             const voxel = chunk[this.getNodeKey({x, y, z})]
             if (voxel > 0) {
                 height = y

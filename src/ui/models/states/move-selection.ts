@@ -33,7 +33,7 @@ export class MoveSelectionState extends GameState {
                 return Promise.reject(`Impossible to move unit (id=${this.selectedUnit.id}) to ${event.position} : no path found`)
             }
 
-            return this.gameView.moveSelectedUnitAlong(this.selectedUnit, this.game.getState(this.selectedUnit), path)
+            return this.gameView.moveSelectedUnitAlong(this.game.getState(this.selectedUnit), path)
                 .then(() => new UnitSelectedState(this.game, this.gameView, this.selectedUnit))
         }
 

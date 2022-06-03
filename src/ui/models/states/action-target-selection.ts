@@ -1,9 +1,10 @@
-import {Action, Unit} from "../../../domain/models/types";
+import {Unit} from "../../../domain/models/types";
 import {GameInputEvent, GameViewInterface, PositionSelectionEvent, STATES, UnitSelectionEvent} from "../types";
 import {GameState} from "../game-state";
 import {ActionPreviewedState} from "./action-previewed";
 import {Game} from "../../../domain/models/game";
 import {NothingSelectedState} from "./nothing-selected";
+import {Action} from "../../../domain/models/actions";
 
 export class ActionTargetSelectionState extends GameState {
 
@@ -30,7 +31,7 @@ export class ActionTargetSelectionState extends GameState {
             console.log("Action previewed", actionResult)
 
             const state = this.game.getState(this.selectedUnit)
-            this.gameView.previewAction(this.selectedUnit, state, actionResult, event.position)
+            this.gameView.previewAction(state, actionResult, event.position)
             return Promise.resolve(new ActionPreviewedState(this.game, this.gameView, this.selectedUnit, this.selectedAction))
         }
 

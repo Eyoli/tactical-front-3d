@@ -1,5 +1,4 @@
-import {FISTS, Range, Weapon} from "./weapons"
-import {ProjectileMotion} from "../algorithm/trajectory"
+import {FISTS, Weapon} from "./weapons"
 
 export type Position3D = {
     x: number
@@ -52,6 +51,7 @@ export type Player = {
 }
 
 type UnitStateProps = {
+    readonly unit: Unit
     readonly hp: number
     readonly position: Position3D
     readonly canMove: boolean
@@ -60,13 +60,15 @@ type UnitStateProps = {
 }
 
 export class UnitState {
+    readonly unit: Unit
     readonly hp: number
     readonly position: Position3D
     readonly canMove: boolean
     readonly canAct: boolean
     readonly dead: boolean
 
-    private constructor({hp, position, canMove, canAct, dead}: UnitStateProps) {
+    private constructor({unit, hp, position, canMove, canAct, dead}: UnitStateProps) {
+        this.unit = unit
         this.hp = hp
         this.position = position
         this.canMove = canMove
@@ -75,6 +77,7 @@ export class UnitState {
     }
 
     static init = (unit: Unit, position: Position3D) => new UnitState({
+        unit,
         hp: unit.hp,
         position,
         canMove: false,
@@ -82,78 +85,47 @@ export class UnitState {
         dead: false,
     })
 
-    moveTo = (position: Position3D) => new UnitState({
-        hp: this.hp,
+    private copy = (changes: {
+        unit?: Unit,
+        hp?: number,
+        position?: Position3D,
+        canMove?: boolean,
+        canAct?: boolean,
+        dead?: boolean
+    }) => {
+        return new UnitState({
+            unit: changes.unit || this.unit,
+            hp: changes.hp || this.hp,
+            position: changes.position || this.position,
+            canMove: (changes.canMove !== undefined) ? changes.canMove : this.canMove,
+            canAct: (changes.canAct !== undefined) ? changes.canAct : this.canAct,
+            dead: (changes.dead !== undefined) ? changes.dead : this.dead,
+        })
+    }
+
+    moveTo = (position: Position3D) => this.copy({
         position,
         canMove: false,
-        canAct: this.canAct,
-        dead: this.dead
     })
 
-    act = () => new UnitState({
-        hp: this.hp,
-        position: this.position,
-        canMove: this.canMove,
+    act = () => this.copy({
         canAct: false,
-        dead: this.dead
     })
 
-    modify = (dhp: number) => new UnitState({
+    modify = (dhp: number) => this.copy({
         hp: this.hp + dhp,
-        position: this.position,
-        canMove: this.canMove,
-        canAct: this.canAct,
         dead: this.dead || this.hp + dhp <= 0
     })
 
-    startTurn = () => new UnitState({
-        hp: this.hp,
-        position: this.position,
+    startTurn = () => this.copy({
         canMove: true,
         canAct: true,
-        dead: this.dead
     })
 
-    endTurn = () => new UnitState({
-        hp: this.hp,
-        position: this.position,
+    endTurn = () => this.copy({
         canMove: false,
         canAct: false,
-        dead: this.dead
     })
 }
 
 export type TrajectoryType = 'bow' | 'gun'
-
-export interface Action {
-    modify(target: UnitState): UnitState
-
-    get source(): Unit
-
-    get range(): Range
-
-    get trajectory(): TrajectoryType | undefined
-}
-
-export class AttackAction implements Action {
-    readonly source: Unit
-
-    constructor(source: Unit) {
-        this.source = source
-    }
-
-    get range() {
-        return this.source.weapon.range
-    }
-
-    get trajectory() {
-        return this.source.weapon.trajectory
-    }
-
-    modify = (target: UnitState): UnitState => target.modify(-this.source.weapon.power)
-}
-
-export type ActionResult = {
-    newStates: Map<Unit, UnitState>
-    trajectory?: ProjectileMotion
-}

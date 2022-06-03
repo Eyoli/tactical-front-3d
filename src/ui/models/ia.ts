@@ -1,9 +1,8 @@
 import {ActionDetail} from "../../domain/models/ia"
-import {delay} from "./utility"
-import {ActionEvent, PositionSelectionEvent} from "../models/types"
-import {GameState} from "../models/game-state";
-import {GameManager} from "../models/game-manager";
-
+import {ActionEvent, PositionSelectionEvent} from "./types"
+import {GameState} from "./game-state";
+import {GameManager} from "./game-manager";
+import {delay} from "./utility";
 
 export class IAManager {
 

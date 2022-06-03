@@ -1,10 +1,11 @@
-import {AttackAction, Unit} from "../../../domain/models/types";
+import {Unit} from "../../../domain/models/types";
 import {ActionEvent, GameInputEvent, GameViewInterface, STATES, UnitSelectionEvent} from "../types";
 import {GameState} from "../game-state";
 import {NothingSelectedState} from "./nothing-selected";
 import {MoveSelectionState} from "./move-selection";
 import {ActionTargetSelectionState} from "./action-target-selection";
 import {Game} from "../../../domain/models/game";
+import {AttackAction} from "../../../domain/models/actions";
 
 export class UnitSelectedState extends GameState {
 

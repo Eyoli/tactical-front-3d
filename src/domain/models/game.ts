@@ -1,4 +1,4 @@
-import {Action, Player, Position2D, Position3D, Unit, UnitState} from "./types"
+import {Player, Position2D, Position3D, Unit, UnitState} from "./types"
 import {
     ACTION_CANNOT_REACH_TARGET,
     NO_ACTIVE_PLAYER,
@@ -10,6 +10,7 @@ import {
 import {BowMotion} from "../algorithm/trajectory";
 import {EdgeFilter} from "../algorithm/path-finder";
 import {WorldMap} from "./world-map";
+import {Action, ActionResult} from "./actions";
 
 const last = <T>(array: T[]): T => array[array.length - 1]
 
@@ -55,8 +56,9 @@ export class Game {
 
     constructor(
         readonly world: WorldMap,
-        readonly units: Unit[], gameInit: GameInit) {
-
+        readonly units: Unit[],
+        gameInit: GameInit
+    ) {
         gameInit.forEach(
             (unitsInit, player) => {
                 this.playersUnits.set(player, Array.from(unitsInit.keys()))
@@ -106,15 +108,6 @@ export class Game {
     }
 
     getPositions = () => Array.from(this.unitsState.values()).map((states) => last(states).position)
-
-    getUnits = (positions: Position2D[]): Unit[] => {
-        const {units, getState} = this
-        return units.filter(unit => {
-            const unitPosition = getState(unit).position
-            if (!unitPosition) return false
-            return positions.find(p => unitPosition.x === p.x && unitPosition.z === p.z)
-        })
-    }
 
     nextTurn = () => {
         const {getActiveUnit, getStates, getState} = this
@@ -168,7 +161,7 @@ export class Game {
         return result.path
     }
 
-    previewAction = (action: Action, target: Position2D) => {
+    previewAction = (action: Action, target: Position2D): ActionResult => {
         const {getReachablePositionsForAction, getState, getUnits} = this
 
         // Verify that the action can be triggered
@@ -187,7 +180,7 @@ export class Game {
         return {newStates, trajectory}
     }
 
-    executeAction = (action: Action, target: Position2D) => {
+    executeAction = (action: Action, target: Position2D): ActionResult => {
         const {previewAction, getStates} = this
         const actionResult = previewAction(action, target)
         actionResult.newStates.forEach((newState, unit) => getStates(unit).push(newState))
@@ -216,6 +209,15 @@ export class Game {
             1,
             unit.moves,
             edgeFilter(unit.jump, getPositions()))
+    }
+
+    private getUnits = (positions: Position2D[]): Unit[] => {
+        const {units, getState} = this
+        return units.filter(unit => {
+            const unitPosition = getState(unit).position
+            if (!unitPosition) return false
+            return positions.find(p => unitPosition.x === p.x && unitPosition.z === p.z)
+        })
     }
 }
 

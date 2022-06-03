@@ -5,9 +5,10 @@
   "main": "index.js",
   "scripts": {
     "dev": "webpack serve --mode development --progress --hot --config ./webpack.config.development.js",
-    "dev-secure": "webpack serve --https --mode development --progress --hot --config ./webpack.config.development.js",
+    "dev:secure": "webpack serve --https --mode development --progress --hot --config ./webpack.config.development.js",
     "build": "webpack --mode production --config ./webpack.config.production.js",
     "test": "jest",
+    "test:mutation": "npx stryker run",
     "start": "http-server dist"
   },
   "keywords": [
@@ -19,13 +20,15 @@
   "author": "Grant Bartlett",
   "license": "MIT",
   "dependencies": {
-    "@types/d3": "^7.1.0",
     "d3": "^7.4.0",
-    "http-server": "^14.1.0",
     "lil-gui": "^0.15.0",
     "three": "^0.134.0"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^6.0.2",
+    "@stryker-mutator/jest-runner": "^6.0.2",
+    "@stryker-mutator/typescript-checker": "^6.0.2",
+    "@types/d3": "^7.1.0",
     "@types/jest": "^27.0.3",
     "@types/three": "^0.134.0",
     "@webpack-cli/serve": "^1.6.0",
@@ -37,6 +40,7 @@
     "html-webpack-plugin": "^5.5.0",
     "jest": "^27.4.3",
     "mini-css-extract-plugin": "^2.4.5",
+    "npx": "^10.2.2",
     "postcss": "^8.4.4",
     "postcss-loader": "^6.2.1",
     "postcss-preset-env": "^7.0.1",

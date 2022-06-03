@@ -2,18 +2,18 @@ import {ACESFilmicToneMapping, Clock, PerspectiveCamera, Raycaster, Scene, WebGL
 import {GameView} from './ui/threejs/game-view'
 import {MainScene} from "./ui/threejs/main-scene"
 import {BasicWorldMapGenerator} from "./ui/threejs/world-map-generator"
-import {stats} from "./ui/monitoring/stats"
+import {stats} from "./ui/threejs/monitoring/stats"
 import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
 import {GameBuilder} from "./domain/models/game"
 import {loadImprovedTexture} from "./ui/threejs/textures"
 import {Player, Unit} from "./domain/models/types"
 import {BOW} from "./domain/models/weapons"
-import {TacticalGUI} from "./ui/gui"
+import {TacticalGUI} from "./ui/threejs/gui"
 import {SceneContext} from "./ui/threejs/context"
 import {GameManager} from "./ui/models/game-manager";
 import {PositionSelectionEvent, UnitSelectionEvent} from "./ui/models/types";
 import {GameState} from "./ui/models/game-state";
-import {IAManager} from "./ui/threejs/ia";
+import {IAManager} from "./ui/models/ia";
 
 function main() {
     const cellSize = 16

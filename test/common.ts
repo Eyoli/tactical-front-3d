@@ -1,13 +1,13 @@
 import {WorldMap} from "../src/domain/models/world-map"
 import {Player, Unit, UnitType} from "../src/domain/models/types";
-import {GameBuilder} from "../src/domain/models/game";
+import {Game, GameBuilder} from "../src/domain/models/game";
 import {GameViewInterface} from "../src/ui/models/types";
 
 export const initWorldMap = (chunkSize: number, heightmap?: number[][], data?: number[][]) => {
     const worldMap = new WorldMap(chunkSize)
 
-    for (let i = 0; i < worldMap.chunkSize; i++) {
-        for (let j = 0; j < worldMap.chunkSize; j++) {
+    for (let i = 0; i < worldMap.size; i++) {
+        for (let j = 0; j < worldMap.size; j++) {
             worldMap.setVoxel({x: i, y: heightmap ? heightmap[i][j] : 0, z: j}, data ? data[i][j] : 1)
         }
     }
@@ -44,3 +44,6 @@ export const gameViewMock = (): GameViewInterface => ({
     selectMoveAction: jest.fn(),
     unselect: jest.fn(),
 })
+
+export const expectUnitToNotBeAbleToMove = (unit: Unit, game: Game) => expect(game.getState(unit).canMove).toEqual(false)
+export const expectUnitToBeAbleToMove = (unit: Unit, game: Game) => expect(game.getState(unit).canMove).toEqual(true)

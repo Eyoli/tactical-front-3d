@@ -1,10 +1,10 @@
 import GUI from "lil-gui"
-import {Unit, UnitState} from "../domain/models/types"
+import {Unit, UnitState} from "../../domain/models/types"
 import {Camera, Scene} from "three";
-import {GameManager} from "./models/game-manager";
-import {ActionEvent, STATES} from "./models/types";
-import {UnitSelectedState} from "./models/states/unit-selected";
-import {GameState} from "./models/game-state";
+import {GameManager} from "../models/game-manager";
+import {ActionEvent, STATES} from "../models/types";
+import {UnitSelectedState} from "../models/states/unit-selected";
+import {GameState} from "../models/game-state";
 
 export class TacticalGUI {
 
